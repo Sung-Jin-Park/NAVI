@@ -482,7 +482,7 @@ export default {
     },
   },
   mounted() {
-    try { this.kakaoAppKey = localStorage.getItem('curator_kakao_js_key') || ''; } catch (_) {}
+    try { this.kakaoAppKey = localStorage.getItem('curator_kakao_js_key') || ''; } catch (_) { this.kakaoAppKey = ''; }
     this.kakaoAppKeyInput = this.kakaoAppKey;
   },
   methods: {
@@ -490,7 +490,7 @@ export default {
       const key = this.kakaoAppKeyInput.trim();
       if (!key) { this.showToast('카카오 JavaScript 키를 입력해주세요.'); return; }
       this.kakaoAppKey = key;
-      try { localStorage.setItem('curator_kakao_js_key', key); } catch (_) {}
+      try { localStorage.setItem('curator_kakao_js_key', key); } catch (_) { this.showToast('브라우저 저장소를 사용할 수 없어 이번 세션에만 적용됩니다.'); }
       this.showApiKeyInput = false;
       this.showToast('실시간 검색 키를 저장했습니다.');
     },
@@ -536,7 +536,7 @@ export default {
         const regionName = this.selectedCityId === 'all' ? '' : (this.regions.find(r => r.id === this.selectedCityId)?.name || '');
         const keyword = `${regionName} ${query}`.trim();
         const result = await new Promise((resolve, reject) => {
-          places.keywordSearch(keyword, (data, status, pagination) => {
+          places.keywordSearch(keyword, (data, status) => {
             if (status === kakao.maps.services.Status.OK) resolve(data || []);
             else if (status === kakao.maps.services.Status.ZERO_RESULT) resolve([]);
             else reject(new Error(`KAKAO_SEARCH_${status}`));
