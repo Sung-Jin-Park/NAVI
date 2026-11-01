@@ -1,779 +1,528 @@
 <template>
-  <div class="app-root">
-    <!-- 배경 유기적 3D 무드 블롭 효과 -->
-    <div class="bg-blob blob-1"></div>
-    <div class="bg-blob blob-2"></div>
-    <div class="bg-blob blob-3"></div>
+  <div class="curator-app">
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
 
-    <v-app class="glass-app">
-      <!-- 📱 상단 헤더 & iPhone 17 다이내믹 아일랜드 바 -->
-      <header class="app-header px-4 py-3 d-flex align-center justify-between">
-        <div class="d-flex align-center gap-2">
-          <!-- 모바일 좌측 사이드바 토글 버튼 -->
-          <v-btn
-            icon="mdi-menu"
-            variant="text"
-            color="primary"
-            class="d-lg-none"
-            @click="drawer = !drawer"
-          />
-          <div class="brand-logo d-flex align-center gap-2">
-            <div class="logo-icon">
-              <v-icon color="white" size="20">mdi-compass-rose</v-icon>
-            </div>
-            <span class="font-weight-black text-h6 gradient-text">SpotCurator 17</span>
-          </div>
-        </div>
+    <div class="viewport-tools">
+      <span>뷰포트 모드</span>
+      <button :class="{ active: isPhoneFrame }" @click="isPhoneFrame = true">📱 iPhone 17 Pro Max</button>
+      <button :class="{ active: !isPhoneFrame }" @click="isPhoneFrame = false">▣ 전체 화면</button>
+    </div>
 
-        <!-- 아이폰 17 다이내믹 아일랜드 & 디바이스 뷰 전환 -->
-        <div class="d-flex align-center gap-2">
-          <button 
-            class="dynamic-island-pill" 
-            :class="{ 'expanded': isIslandExpanded }" 
-            @click="isIslandExpanded = !isIslandExpanded"
-          >
-            <span class="dot"></span>
-            <span class="island-text">{{ isIslandExpanded ? 'iPhone 17 Pro Max Mode' : 'iOS 19 Vision' }}</span>
-          </button>
+    <section class="device-frame" :class="{ 'phone-frame': isPhoneFrame, 'wide-frame': !isPhoneFrame }">
+      <div class="glow glow-a"></div><div class="glow glow-b"></div>
 
-          <v-btn
-            icon
-            color="primary"
-            class="add-spot-btn rounded-xl elevation-3 ml-1"
-            @click="openAddModal"
-          >
-            <v-icon color="white" size="22">mdi-plus</v-icon>
-          </v-btn>
-        </div>
-      </header>
-
-      <!-- 메인 레이아웃 (좌측 대한민국 17개 도시 네비게이션 + 메인 피드) -->
-      <div class="app-body d-flex flex-grow-1">
-        
-        <!-- 🗺️ [전국 17개 광역시·도 사이드 네비게이션] -->
-        <v-navigation-drawer
-          v-model="drawer"
-          :permanent="$vuetify.display.lgAndUp"
-          width="270"
-          class="city-drawer border-0"
-        >
-          <div class="pa-4">
-            <div class="d-flex align-center justify-between mb-3 px-2">
-              <span class="text-caption font-weight-black text-grey-darken-1 tracking-wider uppercase">대한민국 17개 시·도</span>
-              <v-chip size="x-small" color="primary" variant="flat" class="font-weight-bold">전국 지원</v-chip>
-            </div>
-
-            <v-list density="compact" nav class="pa-0 city-list">
-              <v-list-item
-                v-for="city in cities"
-                :key="city.id"
-                :value="city.id"
-                :active="String(selectedCity) === String(city.id)"
-                class="city-item rounded-xl mb-1.5 transition-all"
-                @click="selectCity(city.id)"
-              >
-                <template #prepend>
-                  <div class="city-icon-wrapper mr-3" :class="{ 'active': String(selectedCity) === String(city.id) }">
-                    <v-icon size="18">{{ city.icon }}</v-icon>
-                  </div>
-                </template>
-                <v-list-item-title class="font-weight-bold text-body-2">
-                  {{ city.name }}
-                </v-list-item-title>
-                <template #append>
-                  <v-chip size="x-small" variant="tonal" color="grey" class="font-weight-bold">
-                    {{ getPlaceCount(city.id) }}개
-                  </v-chip>
-                </template>
-              </v-list-item>
-            </v-list>
-          </div>
-        </v-navigation-drawer>
-
-        <!-- 📱 메인 콘텐츠 메인 영역 -->
-        <v-main class="main-content flex-grow-1">
-          <v-container class="pa-4 pa-sm-6 max-w-screen-md mx-auto">
-            
-            <!-- 상단 도시 캐러셀 칩 (모바일 빠른 필터) -->
-            <div class="city-scroll-wrapper mb-5">
-              <v-slide-group v-model="selectedCity" show-arrows mandatory class="py-1">
-                <v-slide-group-item
-                  v-for="city in cities"
-                  :key="city.id"
-                  :value="city.id"
-                  v-slot="{ toggle, isSelected }"
-                >
-                  <button
-                    class="city-capsule-chip mr-2 px-4 py-2.5 rounded-pill transition-all d-flex align-center gap-2"
-                    :class="isSelected ? 'active elevation-4' : 'default elevation-1'"
-                    @click="toggle"
-                  >
-                    <v-icon size="16" :color="isSelected ? 'white' : 'grey-darken-2'">{{ city.icon }}</v-icon>
-                    <span class="font-weight-bold text-caption">{{ city.name }}</span>
-                  </button>
-                </v-slide-group-item>
-              </v-slide-group>
-            </div>
-
-            <!-- 검색바 -->
-            <div class="search-box-wrapper mb-6">
-              <v-text-field
-                v-model="searchQuery"
-                prepend-inner-icon="mdi-magnify"
-                placeholder="장소명, 카테고리, 도로명 주소 검색..."
-                hide-details
-                variant="solo"
-                flat
-                clearable
-                class="search-bar rounded-2xl elevation-2"
-              ></v-text-field>
-            </div>
-
-            <!-- 목록 제목 및 정보 헤더 -->
-            <div class="d-flex align-center justify-between mb-4 px-1">
-              <h2 class="text-h6 font-weight-black text-grey-darken-4 d-flex align-center gap-2">
-                <span>{{ currentCityObj.name }}</span>
-                <span class="text-caption text-primary font-weight-bold bg-primary-light px-2.5 py-1 rounded-pill">
-                  {{ filteredPlaces.length }}개의 추천 장소
-                </span>
-              </h2>
-            </div>
-
-            <!-- 명소 카드 목록 -->
-            <div class="places-grid">
-              <!-- 결과 없음 -->
-              <div v-if="filteredPlaces.length === 0" class="empty-state text-center py-12 pa-6 rounded-3xl elevation-1">
-                <v-avatar color="indigo-lighten-5" size="80" class="mb-4">
-                  <v-icon size="40" color="primary">mdi-map-marker-question-outline</v-icon>
-                </v-avatar>
-                <h3 class="text-h6 font-weight-black text-grey-darken-3 mb-1">등록된 장소가 없어요</h3>
-                <p class="text-body-2 text-grey mb-4">선택하신 도시나 검색어에 해당하는 핫플이 없습니다.</p>
-                <v-btn color="primary" variant="flat" class="rounded-xl px-6" @click="openAddModal">
-                  첫번째 명소 등록하기
-                </v-btn>
-              </div>
-
-              <!-- 카드 데이터 아이템 -->
-              <div
-                v-for="place in filteredPlaces"
-                :key="place.id"
-                class="place-card rounded-3xl pa-5 mb-4 transition-all"
-              >
-                <div class="d-flex align-start justify-between mb-3">
-                  <div class="d-flex align-center gap-2">
-                    <span class="category-tag px-3 py-1 rounded-pill text-caption font-weight-bold">
-                      {{ place.category }}
-                    </span>
-                    <span class="text-caption text-grey font-weight-medium">{{ place.address.split(' ')[0] }}</span>
-                  </div>
-
-                  <v-btn
-                    icon
-                    variant="text"
-                    size="small"
-                    :color="place.favorite ? 'red-accent-3' : 'grey-lighten-1'"
-                    @click="toggleFavorite(place)"
-                  >
-                    <v-icon>{{ place.favorite ? 'mdi-heart' : 'mdi-heart-outline' }}</v-icon>
-                  </v-btn>
-                </div>
-
-                <h3 class="text-h6 font-weight-black text-grey-darken-4 mb-2">
-                  {{ place.name }}
-                </h3>
-
-                <p class="text-body-2 text-grey-darken-2 mb-4 line-clamp-2 leading-relaxed">
-                  {{ place.description }}
-                </p>
-
-                <div class="d-flex align-center justify-between pt-3 border-top-dashed gap-2">
-                  <div class="d-flex align-center text-caption text-grey-darken-1 text-truncate">
-                    <v-icon size="16" color="primary" class="mr-1">mdi-map-marker-radius</v-icon>
-                    <span class="text-truncate font-weight-medium">{{ place.address }}</span>
-                  </div>
-
-                  <!-- 네이버 길찾기 연동 -->
-                  <v-btn
-                    color="#03C75A"
-                    class="naver-btn text-white text-caption font-weight-bold rounded-pill px-4 elevation-0"
-                    size="small"
-                    @click="openNaverNavi(place)"
-                  >
-                    <v-icon size="16" class="mr-1">mdi-navigation</v-icon>
-                    길찾기
-                  </v-btn>
-                </div>
-              </div>
-            </div>
-
-          </v-container>
-        </v-main>
+      <div v-if="isPhoneFrame" class="status-bar">
+        <span>9:41</span><span>5G ▰</span>
       </div>
 
-      <!-- 📍 [등록 모달: 지도 선택 & 우편번호/주소 입력 지원] -->
-      <v-dialog v-model="dialog" max-width="480px" transition="dialog-bottom-transition" persistent>
-        <v-card class="register-modal rounded-3xl pa-2">
-          <v-card-title class="d-flex align-center justify-between pt-4 px-4 pb-2">
-            <div>
-              <span class="text-caption text-primary font-weight-bold uppercase">New Secret Spot</span>
-              <h3 class="text-h6 font-weight-black text-grey-darken-4 mt-n1">✨ 나만의 명소 등록하기</h3>
+      <div v-if="isPhoneFrame" class="dynamic-island" :class="{ expanded: dynamicIslandExpanded }"
+           @click="dynamicIslandExpanded = !dynamicIslandExpanded">
+        <template v-if="!dynamicIslandExpanded">
+          <i></i><span>Curator AI</span><b></b>
+        </template>
+        <template v-else>
+          <div class="island-detail">
+            <span class="flag">🇰🇷</span>
+            <div><strong>전국 17개 도시 큐레이팅</strong><small>{{ currentRegion.name }} 탐색 중 · {{ filteredPlaces.length }}개 장소</small></div>
+            <button @click.stop="openRegister">＋ 등록</button>
+          </div>
+        </template>
+      </div>
+
+      <header class="app-header">
+        <div class="header-left">
+          <button class="icon-button" aria-label="도시 선택" @click="isSidebarOpen = true">☰</button>
+          <div>
+            <div class="region-title"><span>{{ currentRegion.icon }}</span><h1>{{ currentRegion.name }}</h1></div>
+            <p>실시간 인기 플레이스 모음집</p>
+          </div>
+        </div>
+        <button class="add-button" aria-label="장소 등록" @click="openRegister">＋</button>
+      </header>
+
+      <div class="region-strip">
+        <button v-for="region in regions" :key="region.id"
+                :class="{ selected: selectedCityId === region.id }"
+                @click="selectCity(region.id)">
+          <span>{{ region.icon }}</span><b>{{ region.shortName }}</b>
+          <small>{{ cityCounts[region.id] || 0 }}</small>
+        </button>
+      </div>
+
+      <div class="search-area">
+        <span>⌕</span>
+        <input v-model.trim="searchQuery" :placeholder="`${currentRegion.shortName}의 맛집, 카페, 힐링 스팟 검색...`">
+        <button v-if="searchQuery" @click="searchQuery = ''">×</button>
+      </div>
+
+      <main class="place-feed">
+        <div v-if="filteredPlaces.length === 0" class="empty-state">
+          <div>⌖</div><h3>등록된 시크릿 장소가 없어요</h3>
+          <p>＋ 버튼을 눌러 {{ currentRegion.name }}의 숨은 첫 번째 장소를 제보해 주세요!</p>
+          <button class="primary-button" @click="openRegister">＋ 첫 명소 등록하기</button>
+        </div>
+
+        <article v-for="place in filteredPlaces" :key="place.id" class="place-card">
+          <div class="place-image">
+            <img :src="place.image" :alt="place.name" loading="lazy"
+                 @error="onImageError">
+            <div class="image-shade"></div>
+            <span class="category-label">{{ place.category }}</span>
+            <button class="like-button" :class="{ liked: likedPlaceIds.includes(place.id) }"
+                    @click="toggleLike(place.id)">
+              {{ likedPlaceIds.includes(place.id) ? '♥' : '♡' }}
+            </button>
+            <span class="rating">★ {{ Number(place.rating || 0).toFixed(1) }}</span>
+          </div>
+          <div class="place-info">
+            <h2>{{ place.name }}</h2>
+            <p class="description">{{ place.description }}</p>
+            <div v-if="place.tags && place.tags.length" class="tags">
+              <span v-for="(tag, index) in place.tags" :key="index">#{{ tag }}</span>
             </div>
-            <v-btn icon variant="text" size="small" @click="dialog = false">
-              <v-icon>mdi-close</v-icon>
-            </v-btn>
-          </v-card-title>
+            <div class="place-footer">
+              <div class="address">⌖ <span>{{ place.address }}</span></div>
+              <button class="navigation-button" @click="openNavigation(place)">➤ 길찾기</button>
+            </div>
+          </div>
+        </article>
+      </main>
 
-          <v-card-text class="pt-2">
-            <!-- 등록 방법 입력 탭 (주소 검색 vs 지도 핀 찍기) -->
-            <v-tabs v-model="inputMode" color="primary" align-tabs="center" grow class="mb-4 input-mode-tabs rounded-xl">
-              <v-tab value="address" class="text-caption font-weight-bold">
-                <v-icon size="16" class="mr-1">mdi-textbox-password</v-icon> 주소 직접/검색 입력
-              </v-tab>
-              <v-tab value="map" class="text-caption font-weight-bold">
-                <v-icon size="16" class="mr-1">mdi-map-marker-check</v-icon> 지도에서 핀 찍기
-              </v-tab>
-            </v-tabs>
+      <nav class="bottom-nav">
+        <button class="nav-active" @click="resetExplore">◎<small>탐색</small></button>
+        <button @click="isSidebarOpen = true">▤<small>전국도시</small></button>
+        <button @click="openRegister">＋<small>등록</small></button>
+        <button @click="showSaved">♡<em v-if="likedPlaceIds.length">{{ likedPlaceIds.length }}</em><small>보관함</small></button>
+      </nav>
 
-            <!-- 17개 도시 선택 -->
-            <v-select
-              v-model="newPlace.cityId"
-              :items="cities"
-              item-title="name"
-              item-value="id"
-              label="소속 도시 선택"
-              variant="outlined"
-              density="comfortable"
-              class="rounded-xl mb-3"
-              hide-details
-            ></v-select>
+      <div v-if="isSidebarOpen" class="overlay" @click.self="isSidebarOpen = false">
+        <aside class="sidebar">
+          <div class="panel-heading">
+            <div><strong>🇰🇷 대한민국 17개 행정구역</strong><small>도시를 선택하여 명소를 확인하세요</small></div>
+            <button @click="isSidebarOpen = false">×</button>
+          </div>
+          <div class="region-groups">
+            <p>특별시 · 광역시 · 특별자치시</p>
+            <button v-for="region in metroRegions" :key="region.id"
+                    :class="{ chosen: selectedCityId === region.id }" @click="selectCity(region.id)">
+              <span>{{ region.icon }} {{ region.name }}</span><small>{{ cityCounts[region.id] || 0 }}개</small>
+            </button>
+            <p>도 · 특별자치도</p>
+            <button v-for="region in provinceRegions" :key="region.id"
+                    :class="{ chosen: selectedCityId === region.id }" @click="selectCity(region.id)">
+              <span>{{ region.icon }} {{ region.name }}</span><small>{{ cityCounts[region.id] || 0 }}개</small>
+            </button>
+          </div>
+          <footer>Curator Pro v2.5 · iOS 19 Compatible</footer>
+        </aside>
+      </div>
 
-            <!-- 명소 명칭 -->
-            <v-text-field
-              v-model="newPlace.name"
-              label="명소 이름 (예: 한강공원 / 성수 카페)"
-              variant="outlined"
-              density="comfortable"
-              class="rounded-xl mb-3"
-              hide-details
-            ></v-text-field>
+      <div v-if="isRegisterOpen" class="overlay modal-overlay" @click.self="closeRegister">
+        <section class="register-modal">
+          <header class="modal-heading">
+            <div><strong>✨ 시크릿 명소 추가하기</strong><small>지도나 주소 검색으로 위치를 설정하세요</small></div>
+            <button @click="closeRegister">×</button>
+          </header>
+          <div class="modal-content">
+            <label>행정구역 도시 선택</label>
+            <select v-model="newPlace.cityId">
+              <option v-for="region in regions" :key="region.id" :value="region.id">{{ region.icon }} {{ region.name }} ({{ region.shortName }})</option>
+            </select>
 
-            <!-- 카테고리 -->
-            <v-combobox
-              v-model="newPlace.category"
-              :items="categorySuggestions"
-              label="카테고리 (예: 카페, 랜드마크, 맛집)"
-              variant="outlined"
-              density="comfortable"
-              class="rounded-xl mb-3"
-              hide-details
-            ></v-combobox>
-
-            <!-- A. 주소 직접 / 검색 기능 -->
-            <div v-if="inputMode === 'address'" class="mb-3">
-              <div class="d-flex gap-2 mb-2">
-                <v-text-field
-                  v-model="newPlace.address"
-                  label="도로명 주소 입력"
-                  variant="outlined"
-                  density="comfortable"
-                  class="rounded-xl flex-grow-1"
-                  hide-details
-                ></v-text-field>
-                <v-btn
-                  color="indigo-darken-1"
-                  variant="flat"
-                  class="rounded-xl px-4 text-caption font-weight-bold"
-                  style="height: 48px;"
-                  @click="searchAddressApi"
-                >
-                  주소 찾기
-                </v-btn>
-              </div>
-
-              <!-- 주소 검색 결과 자동완성 리스트 -->
-              <div v-if="addressSearchResults.length > 0" class="address-result-box pa-2 rounded-xl border mb-3">
-                <div class="text-caption text-grey font-weight-bold mb-1 px-2">검색 추천 결과 (클릭 시 자동 입력)</div>
-                <div
-                  v-for="(addr, i) in addressSearchResults"
-                  :key="i"
-                  class="addr-item pa-2 rounded-lg cursor-pointer text-caption font-weight-medium"
-                  @click="applySearchedAddress(addr)"
-                >
-                  <v-icon size="14" color="primary" class="mr-1">mdi-map-marker-outline</v-icon>
-                  {{ addr }}
-                </div>
+            <div class="form-grid">
+              <div class="name-field"><label>명소 이름 *</label><input v-model="newPlace.name" placeholder="예: 성수동 가로수 카페"></div>
+              <div><label>카테고리</label>
+                <select v-model="newPlace.category">
+                  <option>핫플레이스</option><option>오션뷰</option><option>인생샷</option>
+                  <option>카페/디저트</option><option>맛집</option><option>힐링/산책</option><option>랜드마크</option>
+                </select>
               </div>
             </div>
 
-            <!-- B. 대화형 지도 핀 찍기 기능 -->
-            <div v-else class="map-picker-container mb-3">
-              <div class="map-mockup rounded-2xl relative overflow-hidden" @click="onMapClick">
-                <div class="map-grid-overlay"></div>
-                <div class="map-instruction">지도를 클릭/터치하면 그곳에 핀이 형성됩니다</div>
-                
-                <!-- 마커 애니메이션 핀 -->
-                <div
-                  class="map-marker-pin"
-                  :style="{ left: pinPos.x + '%', top: pinPos.y + '%' }"
-                >
-                  <v-icon color="red" size="32">mdi-map-marker</v-icon>
-                  <div class="pin-pulse"></div>
-                </div>
-              </div>
-              <div class="text-caption text-grey-darken-1 mt-1 text-center font-weight-medium">
-                선택된 좌표: 위도 {{ pinCoords.lat }}, 경도 {{ pinCoords.lng }}
+            <div class="location-heading">
+              <label>위치 입력 방식 *</label>
+              <div class="tabs">
+                <button :class="{ active: registerTab === 'map' }" @click="registerTab = 'map'">⌖ 지도 핀 찍기</button>
+                <button :class="{ active: registerTab === 'search' }" @click="registerTab = 'search'">⌕ 주소 검색</button>
               </div>
             </div>
 
-            <!-- 소개글 입력 -->
-            <v-textarea
-              v-model="newPlace.description"
-              label="이 장소가 특별한 이유 / 시크릿 팁"
-              variant="outlined"
-              density="comfortable"
-              rows="3"
-              class="rounded-xl"
-              hide-details
-            ></v-textarea>
-          </v-card-text>
+            <div v-if="registerTab === 'map'" class="map-picker" @click="handleMapClick">
+              <div class="map-hint">원하는 위치를 터치하면 핀이 생성됩니다.</div>
+              <div class="map-pin" :style="{ left: mapPin.x + '%', top: mapPin.y + '%' }">
+                <span>{{ mapPin.label }}</span><b>📍</b>
+              </div>
+            </div>
+            <div v-else class="address-search">
+              <input v-model.trim="addressSearchQuery" placeholder="도로명 주소 또는 건물명 입력">
+              <div class="address-results">
+                <button v-for="item in searchedAddresses" :key="item.zonecode"
+                        @click="selectSearchedAddress(item)">
+                  <span><b>{{ item.buildingName }}</b><small>{{ item.roadAddress }}</small></span>
+                  <em>{{ item.zonecode }}</em>
+                </button>
+                <p v-if="searchedAddresses.length === 0">검색 결과가 없습니다.</p>
+              </div>
+            </div>
+            <input class="selected-address" :value="newPlace.address" readonly placeholder="선택된 주소가 표시됩니다">
 
-          <v-card-actions class="px-4 pb-4">
-            <v-btn
-              block
-              color="primary"
-              size="large"
-              class="rounded-2xl py-3 font-weight-black elevation-3"
-              @click="addPlace"
-            >
-              장소 저장 및 등록 완료
-            </v-btn>
-          </v-card-actions>
-        </card>
-      </v-dialog>
-    </v-app>
+            <label>이 장소가 특별한 이유</label>
+            <textarea v-model="newPlace.description" rows="2" placeholder="뷰가 멋진 창가 자리, 추천 메뉴 등 시크릿 팁을 남겨주세요."></textarea>
+            <label>태그 (쉼표로 구분)</label>
+            <input v-model="newPlace.tags" placeholder="오션뷰, 데이트, 분위기맛집">
+            <label>이미지 주소 (선택)</label>
+            <input v-model="newPlace.image" placeholder="https://...">
+            <label>상세 위치 (선택)</label>
+            <input v-model="newPlace.detailAddress" placeholder="예: 2층 창가 자리">
+          </div>
+          <footer class="modal-actions">
+            <button class="cancel-button" @click="closeRegister">취소</button>
+            <button class="save-button" @click="savePlace">✓ 장소 저장하기</button>
+          </footer>
+        </section>
+      </div>
+
+      <div v-if="toastMessage" class="toast">✨ {{ toastMessage }}</div>
+    </section>
   </div>
 </template>
 
 <script>
+const KOREA_REGIONS = [
+  { id: 'seoul', name: '서울특별시', shortName: '서울', icon: '🏛️', category: 'special' },
+  { id: 'busan', name: '부산광역시', shortName: '부산', icon: '🌊', category: 'metro' },
+  { id: 'daegu', name: '대구광역시', shortName: '대구', icon: '🍎', category: 'metro' },
+  { id: 'incheon', name: '인천광역시', shortName: '인천', icon: '✈️', category: 'metro' },
+  { id: 'gwangju', name: '광주광역시', shortName: '광주', icon: '🎨', category: 'metro' },
+  { id: 'daejeon', name: '대전광역시', shortName: '대전', icon: '🔬', category: 'metro' },
+  { id: 'ulsan', name: '울산광역시', shortName: '울산', icon: '🐳', category: 'metro' },
+  { id: 'sejong', name: '세종특별자치시', shortName: '세종', icon: '🏢', category: 'special' },
+  { id: 'gyeonggi', name: '경기도', shortName: '경기', icon: '🌲', category: 'province' },
+  { id: 'gangwon', name: '강원특별자치도', shortName: '강원', icon: '🏔️', category: 'province' },
+  { id: 'chungbuk', name: '충청북도', shortName: '충북', icon: '⛰️', category: 'province' },
+  { id: 'chungnam', name: '충청남도', shortName: '충남', icon: '🌾', category: 'province' },
+  { id: 'jeonbuk', name: '전북특별자치도', shortName: '전북', icon: '🍲', category: 'province' },
+  { id: 'jeonnam', name: '전라남도', shortName: '전남', icon: '🏝️', category: 'province' },
+  { id: 'gyeongbuk', name: '경상북도', shortName: '경북', icon: '⛩️', category: 'province' },
+  { id: 'gyeongnam', name: '경상남도', shortName: '경남', icon: '🌸', category: 'province' },
+  { id: 'jeju', name: '제주특별자치도', shortName: '제주', icon: '🍊', category: 'province' }
+];
+
+const INITIAL_PLACES = [
+  { id: 1, cityId: 'seoul', name: '더 현대 서울', category: '핫플레이스', rating: 4.8, address: '서울 영등포구 여의대로 108', detailAddress: '지하 2층 팝업스토어 존', description: '도심 속 자연을 품은 혁신적인 실내 정원 사운즈 포레스트와 트렌디한 글로벌 팝업스토어 성지.', image: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=800&q=80', likes: 1240, coordinates: { x: 45, y: 35 }, tags: ['쇼핑', '실내정원', '팝업스토어'] },
+  { id: 2, cityId: 'seoul', name: 'N서울타워', category: '랜드마크', rating: 4.7, address: '서울 용산구 남산공원길 105', detailAddress: '전망대 타워층', description: '서울 시내를 360도 파노라마로 한눈에 감상할 수 있는 로맨틱한 대표 밤야경 힐링 스팟.', image: 'https://images.unsplash.com/photo-1538485199708-0f51451c5301?auto=format&fit=crop&w=800&q=80', likes: 980, coordinates: { x: 50, y: 40 }, tags: ['야경', '남산', '데이스코스'] },
+  { id: 3, cityId: 'busan', name: '광안리 해수욕장 & M드론라이트쇼', category: '오션뷰', rating: 4.9, address: '부산 수영구 광안해변로 219', detailAddress: '민락타운 앞 해변무대', description: '화려한 광안대교 조명과 수천 대의 드론이 펼치는 밤하늘의 낭만적인 드론 쇼.', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80', likes: 2150, coordinates: { x: 70, y: 75 }, tags: ['바다', '드론쇼', '광안대교'] },
+  { id: 4, cityId: 'jeju', name: '사계해안 지층대', category: '인생샷', rating: 4.9, address: '제주특별자치도 서귀포시 안덕면 사계리', detailAddress: '사계항 해안도로변', description: '독특한 화산지형 지층 무늬와 구멍 뚫린 해안 바위가 어우러져 해외 여행지 같은 포토존.', image: 'https://images.unsplash.com/photo-1540206395-68808572332f?auto=format&fit=crop&w=800&q=80', likes: 1840, coordinates: { x: 25, y: 85 }, tags: ['포토존', '자연경관', '제주서부'] },
+  { id: 5, cityId: 'gyeongbuk', name: '경주 동궁과 월지', category: '역사/야경', rating: 4.85, address: '경상북도 경주시 원화로 102', detailAddress: '동궁과 월지 연못 둘레길', description: '신라 왕궁의 별궁 터로 밤이 되면 연못에 반사되는 조명 건물들이 몽환적인 야경 명소.', image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80', likes: 890, coordinates: { x: 65, y: 60 }, tags: ['경주야경', '신라유적', '산책'] },
+  { id: 6, cityId: 'gangwon', name: '강릉 안목해변 커피거리', category: '카페/바다', rating: 4.6, address: '강원특별자치도 강릉시 창해로 14', detailAddress: '카페거리 중앙 광장', description: '동해 바다 풍경을 바라보며 명품 스페셜티 커피와 디저트를 즐길 수 있는 카페 거리.', image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=800&q=80', likes: 1420, coordinates: { x: 75, y: 25 }, tags: ['커피', '동해바다', '드라이브'] }
+];
+
+const ADDRESS_MOCK_DB = [
+  { zonecode: '07345', roadAddress: '서울 영등포구 여의대로 108', jibunAddress: '서울 영등포구 여의도동 22', buildingName: '더현대 서울', cityId: 'seoul' },
+  { zonecode: '04340', roadAddress: '서울 용산구 남산공원길 105', jibunAddress: '서울 용산구 용산동2가 산1-3', buildingName: 'YTN 서울타워', cityId: 'seoul' },
+  { zonecode: '48303', roadAddress: '부산 수영구 광안해변로 219', jibunAddress: '부산 수영구 민락동 178-13', buildingName: '광안리 해수욕장 상가', cityId: 'busan' },
+  { zonecode: '63535', roadAddress: '제주특별자치도 서귀포시 안덕면 사계남로 216', jibunAddress: '제주 서귀포시 안덕면 사계리 2294', buildingName: '사계해안 뷰 포인트', cityId: 'jeju' },
+  { zonecode: '38170', roadAddress: '경상북도 경주시 원화로 102', jibunAddress: '경북 경주시 인왕동 26-1', buildingName: '동궁과 월지 안압지', cityId: 'gyeongbuk' },
+  { zonecode: '25567', roadAddress: '강원특별자치도 강릉시 창해로 14', jibunAddress: '강원 강릉시 견소동 286-4', buildingName: '안목커피거리 타워', cityId: 'gangwon' },
+  { zonecode: '41940', roadAddress: '대구 중구 달구벌대로 2077', jibunAddress: '대구 중구 계산동2가 200', buildingName: '더현대 대구', cityId: 'daegu' },
+  { zonecode: '21999', roadAddress: '인천 중구 공항로 272', jibunAddress: '인천 중구 운서동 2840', buildingName: '인천국제공항 제1여객터미널', cityId: 'incheon' }
+];
+
+const EMPTY_PLACE = () => ({
+  cityId: 'seoul', name: '', category: '핫플레이스', address: '',
+  detailAddress: '', description: '', tags: '', image: '',
+  coordinates: { x: 50, y: 50 }
+});
+
 export default {
   name: 'App',
   data() {
     return {
-      drawer: null,
-      isIslandExpanded: false,
-      selectedCity: 'seoul', // [버그 수정]: String 타입으로 고정
+      regions: KOREA_REGIONS,
+      places: INITIAL_PLACES.map(place => ({ ...place })),
+      selectedCityId: 'seoul',
       searchQuery: '',
-      dialog: false,
-      inputMode: 'address', // 'address' | 'map'
-      
-      // 🇰🇷 대한민국 17개 광역시·도 완벽 구성
-      cities: [
-        { id: 'seoul', name: '서울특별시', icon: 'mdi-city-variant' },
-        { id: 'busan', name: '부산광역시', icon: 'mdi-waves' },
-        { id: 'daegu', name: '대구광역시', icon: 'mdi-image-filter-hdr' },
-        { id: 'incheon', name: '인천광역시', icon: 'mdi-airplane' },
-        { id: 'gwangju', name: '광주광역시', icon: 'mdi-white-balance-sunny' },
-        { id: 'daejeon', name: '대전광역시', icon: 'mdi-atom' },
-        { id: 'ulsan', name: '울산광역시', icon: 'mdi-factory' },
-        { id: 'sejong', name: '세종특별자치시', icon: 'mdi-office-building-marker' },
-        { id: 'gyeonggi', name: '경기도', icon: 'mdi-home-city' },
-        { id: 'gangwon', name: '강원특별자치도', icon: 'mdi-tree' },
-        { id: 'chungbuk', name: '충청북도', icon: 'mdi-sprout' },
-        { id: 'chungnam', name: '충청남도', icon: 'mdi-barley' },
-        { id: 'jeonbuk', name: '전북특별자치도', icon: 'mdi-rice' },
-        { id: 'jeonnam', name: '전라남도', icon: 'mdi-sail-boat' },
-        { id: 'gyeongbuk', name: '경상북도', icon: 'mdi-castle' },
-        { id: 'gyeongnam', name: '경상남도', icon: 'mdi-bridge' },
-        { id: 'jeju', name: '제주특별자치도', icon: 'mdi-palm-tree' },
-      ],
-
-      categorySuggestions: ['핫플레이스', '카페', '맛집', '랜드마크', '힐링스팟', '야경명소', '오션뷰'],
-
-      // 신규 등록 객체
-      newPlace: {
-        cityId: 'seoul',
-        name: '',
-        category: '핫플레이스',
-        address: '',
-        description: '',
-      },
-
-      addressSearchResults: [],
-
-      // 지도 핀 찍기 시뮬레이터 좌표
-      pinPos: { x: 50, y: 50 },
-      pinCoords: { lat: 37.5665, lng: 126.9780 },
-
-      // 샘플 명소 데이터
-      places: [
-        {
-          id: 1,
-          cityId: 'seoul',
-          name: '더 현대 서울',
-          category: '핫플레이스',
-          address: '서울 영등포구 여의대로 108',
-          description: '도심 속 자연을 품은 실내 정원과 최신 트렌드 팝업스토어 성지.',
-          favorite: true,
-        },
-        {
-          id: 2,
-          cityId: 'seoul',
-          name: 'N서울타워',
-          category: '랜드마크',
-          address: '서울 용산구 남산공원길 105',
-          description: '서울의 전경을 360도 파노라마로 감상할 수 있는 로맨틱 야경 명소.',
-          favorite: false,
-        },
-        {
-          id: 3,
-          cityId: 'busan',
-          name: '광안리 해수욕장',
-          category: '오션뷰',
-          address: '부산 수영구 광안해변로 219',
-          description: '화려한 광안대교 야경과 드론쇼를 즐길 수 있는 대표 해변.',
-          favorite: true,
-        },
-        {
-          id: 4,
-          cityId: 'ulsan',
-          name: '태화강 국가정원 (십리대숲)',
-          category: '힐링스팟',
-          address: '울산 중구 태화강국가정원길 154',
-          description: '강변을 따라 끝없이 펼쳐진 은하수 대나무 숲길과 대규모 생태정원.',
-          favorite: true,
-        },
-        {
-          id: 5,
-          cityId: 'jeju',
-          name: '사계해안',
-          category: '인생샷명소',
-          address: '제주특별자치도 서귀포시 안덕면 사계리',
-          description: '지층 무늬와 독특한 해안 지형이 어우러진 이국적인 제주 바다.',
-          favorite: false,
-        },
-      ],
+      likedPlaceIds: [1, 3],
+      isSidebarOpen: false,
+      isPhoneFrame: true,
+      dynamicIslandExpanded: false,
+      isRegisterOpen: false,
+      registerTab: 'map',
+      newPlace: EMPTY_PLACE(),
+      mapPin: { x: 48, y: 42, label: '서울 용산구 후암동 근처' },
+      addressSearchQuery: '',
+      toastMessage: '',
+      toastTimer: null
     };
   },
   computed: {
-    currentCityObj() {
-      return this.cities.find((c) => String(c.id) === String(this.selectedCity)) || this.cities[0];
+    currentRegion() {
+      return this.regions.find(region => region.id === this.selectedCityId) || this.regions[0];
     },
     filteredPlaces() {
-      return this.places.filter((p) => {
-        // [버그 수정 1]: String 매칭으로 완벽한 타입 일치
-        const matchesCity = String(p.cityId) === String(this.selectedCity);
-        const query = this.searchQuery.toLowerCase().trim();
-        const matchesQuery =
-          !query ||
-          p.name.toLowerCase().includes(query) ||
-          p.description.toLowerCase().includes(query) ||
-          p.category.toLowerCase().includes(query) ||
-          p.address.toLowerCase().includes(query);
-
-        return matchesCity && matchesQuery;
+      const query = this.searchQuery.toLocaleLowerCase('ko-KR').trim();
+      return this.places.filter(place => {
+        if (String(place.cityId) !== String(this.selectedCityId)) return false;
+        if (!query) return true;
+        return [place.name, place.description, place.category, place.address, ...(place.tags || [])]
+          .some(value => String(value || '').toLocaleLowerCase('ko-KR').includes(query));
       });
     },
+    cityCounts() {
+      const counts = Object.fromEntries(this.regions.map(region => [region.id, 0]));
+      this.places.forEach(place => { if (counts[place.cityId] !== undefined) counts[place.cityId] += 1; });
+      return counts;
+    },
+    metroRegions() {
+      return this.regions.filter(region => region.category !== 'province');
+    },
+    provinceRegions() {
+      return this.regions.filter(region => region.category === 'province');
+    },
+    searchedAddresses() {
+      const query = this.addressSearchQuery.toLocaleLowerCase('ko-KR');
+      return ADDRESS_MOCK_DB.filter(item =>
+        !query || item.roadAddress.toLocaleLowerCase('ko-KR').includes(query) ||
+        item.buildingName.toLocaleLowerCase('ko-KR').includes(query) ||
+        item.jibunAddress.toLocaleLowerCase('ko-KR').includes(query)
+      );
+    }
   },
   methods: {
     selectCity(cityId) {
-      this.selectedCity = cityId;
+      this.selectedCityId = cityId;
+      this.isSidebarOpen = false;
     },
-    getPlaceCount(cityId) {
-      return this.places.filter((p) => String(p.cityId) === String(cityId)).length;
+    openRegister() {
+      this.newPlace = { ...EMPTY_PLACE(), cityId: this.selectedCityId };
+      this.registerTab = 'map';
+      this.addressSearchQuery = '';
+      this.mapPin = { x: 48, y: 42, label: `${this.currentRegion.name} 위치 선택` };
+      this.isRegisterOpen = true;
     },
-    toggleFavorite(place) {
-      place.favorite = !place.favorite;
+    closeRegister() {
+      this.isRegisterOpen = false;
     },
-    openNaverNavi(place) {
-      const encodedAddr = encodeURIComponent(place.address + ' ' + place.name);
-      const naverMapUrl = `https://map.naver.com/v5/search/${encodedAddr}`;
-      window.open(naverMapUrl, '_blank');
+    showToast(message) {
+      this.toastMessage = message;
+      if (this.toastTimer) clearTimeout(this.toastTimer);
+      this.toastTimer = setTimeout(() => { this.toastMessage = ''; }, 2600);
     },
-    openAddModal() {
-      this.newPlace.cityId = this.selectedCity;
-      this.dialog = true;
+    toggleLike(id) {
+      const index = this.likedPlaceIds.indexOf(id);
+      if (index >= 0) {
+        this.likedPlaceIds.splice(index, 1);
+        this.showToast('보관함에서 제거되었습니다.');
+      } else {
+        this.likedPlaceIds.push(id);
+        this.showToast('나만의 저장소에 담았습니다! ❤️');
+      }
     },
-    
-    // 주소 검색 API 결과 시뮬레이션
-    searchAddressApi() {
-      if (!this.newPlace.address) {
-        alert('검색할 도로명 주소를 입력해주세요.');
+    openNavigation(place) {
+      const encoded = encodeURIComponent(`${place.address} ${place.name}`);
+      window.open(`https://map.naver.com/v5/search/${encoded}`, '_blank', 'noopener');
+      this.showToast(`${place.name} 길찾기를 연결합니다.`);
+    },
+    handleMapClick(event) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const x = Math.max(0, Math.min(100, Math.round((event.clientX - rect.left) / rect.width * 100)));
+      const y = Math.max(0, Math.min(100, Math.round((event.clientY - rect.top) / rect.height * 100)));
+      const roads = ['세종대로', '해안로', '중앙로', '대학로', '가로수길', '첨단단지로'];
+      const road = roads[Math.floor(Math.random() * roads.length)];
+      const number = Math.floor(Math.random() * 150) + 1;
+      const address = `${this.currentRegion.name} ${road} ${number}`;
+      this.mapPin = { x, y, label: address };
+      this.newPlace.address = address;
+      this.newPlace.coordinates = { x, y };
+      this.showToast('📍 지도 핀 위치가 선택되었습니다. (시뮬레이션)');
+    },
+    selectSearchedAddress(item) {
+      this.newPlace.cityId = item.cityId;
+      this.newPlace.address = item.roadAddress;
+      if (!this.newPlace.name) this.newPlace.name = item.buildingName;
+      this.selectedCityId = item.cityId;
+      this.showToast(`${item.buildingName} 주소가 반영되었습니다.`);
+    },
+    savePlace() {
+      if (!this.newPlace.name.trim()) {
+        this.showToast('⚠️ 명소 이름을 입력해주세요.');
         return;
       }
-      const base = this.currentCityObj.name;
-      this.addressSearchResults = [
-        `${base} 테헤란로 123 (우편번호 06123)`,
-        `${base} 중앙로 45번길 7 (우편번호 06456)`,
-        `${base} 대학로 89 (우편번호 06789)`,
-      ];
-    },
-    applySearchedAddress(addr) {
-      this.newPlace.address = addr;
-      this.addressSearchResults = [];
-    },
-
-    // 대화형 지도 클릭 핀 선택
-    onMapClick(e) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-      
-      this.pinPos = { x: Math.round(x), y: Math.round(y) };
-      this.pinCoords = {
-        lat: (37.5 + (100 - y) * 0.01).toFixed(4),
-        lng: (126.9 + x * 0.01).toFixed(4),
-      };
-      
-      this.newPlace.address = `${this.currentCityObj.name} 핀 선택 위치 (${this.pinCoords.lat}, ${this.pinCoords.lng})`;
-    },
-
-    // 장소 저장 ([버그 수정 2]: 완전한 폼 초기화 및 해당 도시 자동 선택)
-    addPlace() {
-      if (!this.newPlace.name || !this.newPlace.address) {
-        alert('명소 이름과 주소는 필수입니다!');
+      if (!this.newPlace.address.trim()) {
+        this.showToast('⚠️ 지도 핀 또는 주소 검색으로 위치를 선택해주세요.');
         return;
       }
-
-      const createdSpot = {
+      const tags = this.newPlace.tags
+        ? this.newPlace.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+        : ['추천핫플', 'NEW'];
+      const place = {
         id: Date.now(),
         cityId: this.newPlace.cityId,
-        name: this.newPlace.name,
+        name: this.newPlace.name.trim(),
         category: this.newPlace.category || '핫플레이스',
+        rating: 5,
         address: this.newPlace.address,
-        description: this.newPlace.description || '새롭게 등록된 추천 명소입니다.',
-        favorite: false,
+        detailAddress: this.newPlace.detailAddress || '상세위치 정보',
+        description: this.newPlace.description || '방문객들이 강력 추천하는 새로운 핫플레이스입니다.',
+        image: this.newPlace.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+        likes: 1,
+        coordinates: { ...this.newPlace.coordinates },
+        tags
       };
-
-      this.places.unshift(createdSpot);
-
-      // 내가 신규 등록한 장소의 도시로 화면 자동 변경
-      this.selectedCity = this.newPlace.cityId;
-
-      // 입력 폼 초기화 리셋
-      this.newPlace = {
-        cityId: this.selectedCity,
-        name: '',
-        category: '핫플레이스',
-        address: '',
-        description: '',
-      };
-      this.addressSearchResults = [];
-      this.dialog = false;
+      this.places.unshift(place);
+      this.selectedCityId = place.cityId;
+      this.searchQuery = '';
+      this.isRegisterOpen = false;
+      this.newPlace = EMPTY_PLACE();
+      this.showToast('✨ 나만의 시크릿 플레이스가 등록되었습니다!');
     },
+    resetExplore() {
+      this.searchQuery = '';
+      this.selectedCityId = 'seoul';
+    },
+    showSaved() {
+      this.showToast(`저장된 명소 총 ${this.likedPlaceIds.length}개`);
+    },
+    onImageError(event) {
+      event.target.src = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80';
+    }
   },
+  beforeUnmount() {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+  }
 };
 </script>
 
 <style scoped>
-/* 🎨 iOS 19 & 아이폰 17 스타일 모던 테마 */
-.app-root {
-  min-height: 100vh;
-  background-color: #0f172a;
-  position: relative;
-  overflow-x: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Pretendard', sans-serif;
+:global(*) { box-sizing: border-box; }
+.curator-app {
+  min-height: 100vh; padding: 18px; display: flex; flex-direction: column; align-items: center;
+  background: #020617; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Pretendard", sans-serif;
+  overflow: hidden; position: relative;
 }
-
-.glass-app {
-  background: transparent !important;
-}
-
-/* 배경 블러 그라데이션 */
-.bg-blob {
-  position: fixed;
-  border-radius: 50%;
-  filter: blur(90px);
-  z-index: 0;
-  opacity: 0.35;
-  pointer-events: none;
-}
-.blob-1 { top: -80px; left: -80px; width: 350px; height: 350px; background: #6366f1; }
-.blob-2 { top: 45%; right: -100px; width: 400px; height: 400px; background: #a855f7; }
-.blob-3 { bottom: -80px; left: 30%; width: 380px; height: 380px; background: #06b6d4; }
-
-/* 📱 아이폰 17 다이내믹 아일랜드 UI */
-.dynamic-island-pill {
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 6px 14px;
-  border-radius: 30px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  color: white;
-}
-.dynamic-island-pill:hover {
-  transform: scale(1.05);
-}
-.dynamic-island-pill.expanded {
-  padding: 8px 20px;
-  background: #000;
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
-}
-.dynamic-island-pill .dot {
-  width: 8px;
-  height: 8px;
-  background-color: #10b981;
-  border-radius: 50%;
-  box-shadow: 0 0 8px #10b981;
-}
-.island-text {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-}
-
-/* 헤더 & 브랜딩 */
-.app-header {
-  position: relative;
-  z-index: 10;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-}
-.logo-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.gradient-text {
-  background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* 🗺️ 도시 사이드바 서랍 */
-.city-drawer {
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(226, 232, 240, 0.8) !important;
-}
-.city-icon-wrapper {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: #f1f5f9;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-.city-icon-wrapper.active {
-  background: #6366f1;
-  color: white;
-}
-
-/* 상단 캡슐 칩 */
-.city-capsule-chip {
-  border: 1px solid #e2e8f0;
-  background: white;
-  cursor: pointer;
-}
-.city-capsule-chip.default:hover {
-  background: #f8fafc;
-}
-.city-capsule-chip.active {
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-  color: white;
-  border-color: transparent;
-}
-
-/* 명소 카드 디자인 */
-.place-card {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.04);
-}
-.place-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 16px 35px -5px rgba(99, 102, 241, 0.12);
-}
-
-.category-tag {
-  background: #e0e7ff;
-  color: #4338ca;
-}
-
-.naver-btn {
-  background-color: #03C75A !important;
-}
-
-.border-top-dashed {
-  border-top: 1px dashed #e2e8f0;
-}
-
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* 📍 지도 인터랙티브 핀 찍기 시뮬레이터 */
-.map-picker-container {
-  border: 1px solid #e2e8f0;
-  padding: 6px;
-  border-radius: 16px;
-}
-.map-mockup {
-  height: 160px;
-  background: #e2e8f0;
-  background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
-  background-size: 16px 16px;
-  cursor: crosshair;
-  position: relative;
-}
-.map-instruction {
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.7);
-  color: white;
-  font-size: 10px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  pointer-events: none;
-}
-.map-marker-pin {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  pointer-events: none;
-}
-.pin-pulse {
-  width: 12px;
-  height: 12px;
-  background: rgba(239, 68, 68, 0.4);
-  border-radius: 50%;
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% { transform: translateX(-50%) scale(1); opacity: 1; }
-  100% { transform: translateX(-50%) scale(3); opacity: 0; }
-}
-
-/* 주소 연동 결과 세팅 */
-.address-result-box {
-  background: #f8fafc;
-  max-height: 120px;
-  overflow-y: auto;
-}
-.addr-item:hover {
-  background: #e0e7ff;
-  color: #4338ca;
+.ambient { position: fixed; width: 360px; height: 360px; border-radius: 50%; filter: blur(110px); opacity: .16; pointer-events: none; }
+.ambient-one { background: #6366f1; top: -130px; left: -100px; }
+.ambient-two { background: #9333ea; right: -120px; bottom: -130px; }
+.viewport-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding: 7px 12px; border: 1px solid #1e293b; border-radius: 30px; background: #0f172acc; color: #94a3b8; font-size: 11px; z-index: 2; }
+.viewport-tools button { border: 0; border-radius: 20px; padding: 6px 10px; color: #94a3b8; background: transparent; cursor: pointer; font-size: 11px; }
+.viewport-tools button.active { color: white; background: #4f46e5; }
+.device-frame { width: 100%; max-width: 1050px; height: min(900px, calc(100vh - 70px)); min-height: 650px; position: relative; display: flex; flex-direction: column; overflow: hidden; background: #0f172a; border: 1px solid #334155; border-radius: 30px; box-shadow: 0 25px 80px #0009; isolation: isolate; }
+.phone-frame { max-width: 430px; height: min(915px, calc(100vh - 24px)); min-height: 680px; border: 9px solid #1e293b; border-radius: 48px; }
+.glow { position: absolute; z-index: -1; border-radius: 50%; filter: blur(85px); pointer-events: none; }
+.glow-a { width: 270px; height: 270px; background: #4f46e5; opacity: .18; top: -100px; left: -100px; }
+.glow-b { width: 300px; height: 300px; background: #9333ea; opacity: .16; bottom: -100px; right: -100px; }
+.status-bar { display: flex; justify-content: space-between; padding: 7px 25px 2px; color: #cbd5e1; font-size: 11px; font-weight: 700; z-index: 2; }
+.dynamic-island { align-self: center; min-width: 126px; height: 31px; padding: 0 13px; margin: 3px auto 8px; border-radius: 30px; background: #020202; border: 1px solid #ffffff18; display: flex; align-items: center; justify-content: space-between; gap: 10px; z-index: 5; cursor: pointer; box-shadow: 0 6px 18px #0007; transition: all .25s; }
+.dynamic-island > i { width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981; }
+.dynamic-island > span { font-size: 10px; color: #cbd5e1; font-weight: 700; }
+.dynamic-island > b { width: 9px; height: 9px; border-radius: 50%; background: #6366f1; }
+.dynamic-island.expanded { width: min(320px, 90%); height: 72px; border-radius: 24px; padding: 10px 13px; }
+.island-detail { display: flex; align-items: center; gap: 10px; width: 100%; }
+.island-detail .flag { font-size: 25px; }
+.island-detail div { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.island-detail strong { font-size: 11px; }
+.island-detail small { font-size: 9px; color: #a5b4fc; }
+.island-detail button { border: 0; border-radius: 10px; padding: 7px 10px; background: #4f46e5; color: white; font-weight: 800; font-size: 10px; }
+.app-header { padding: 13px 18px 12px; display: flex; justify-content: space-between; align-items: center; z-index: 2; }
+.header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.icon-button, .add-button { width: 39px; height: 39px; flex: 0 0 auto; border: 1px solid #334155; border-radius: 14px; background: #1e293bcc; color: #e2e8f0; font-size: 19px; cursor: pointer; }
+.add-button { border: 1px solid #818cf855; background: linear-gradient(135deg, #4f46e5, #9333ea); color: white; font-size: 25px; box-shadow: 0 6px 20px #4f46e544; }
+.region-title { display: flex; align-items: center; gap: 7px; }
+.region-title h1 { margin: 0; font-size: 16px; font-weight: 900; letter-spacing: -.5px; }
+.region-title span { font-size: 16px; }
+.header-left p { margin: 3px 0 0; color: #94a3b8; font-size: 10px; }
+.region-strip { display: flex; gap: 7px; overflow-x: auto; padding: 3px 17px 11px; scrollbar-width: none; z-index: 2; }
+.region-strip::-webkit-scrollbar { display: none; }
+.region-strip button { flex: 0 0 auto; display: flex; align-items: center; gap: 5px; border: 1px solid #33415599; border-radius: 13px; padding: 7px 9px; color: #cbd5e1; background: #1e293b99; font-size: 10px; cursor: pointer; }
+.region-strip button.selected { color: white; border-color: #818cf866; background: linear-gradient(110deg, #4f46e5, #7c3aed); box-shadow: 0 5px 15px #4f46e533; }
+.region-strip button small { padding: 2px 5px; border-radius: 9px; background: #ffffff20; font-size: 9px; }
+.search-area { margin: 0 17px 13px; padding: 0 12px; display: flex; align-items: center; gap: 9px; border: 1px solid #334155; border-radius: 15px; background: #1e293bcc; z-index: 2; }
+.search-area > span { color: #94a3b8; font-size: 22px; }
+.search-area input { flex: 1; min-width: 0; padding: 12px 0; border: 0; outline: 0; background: transparent; color: #f8fafc; font-size: 11px; }
+.search-area input::placeholder { color: #64748b; }
+.search-area button { border: 0; background: transparent; color: #94a3b8; font-size: 20px; }
+.place-feed { flex: 1; min-height: 0; overflow-y: auto; padding: 0 17px 95px; z-index: 1; scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+.place-card { overflow: hidden; margin-bottom: 14px; border: 1px solid #334155aa; border-radius: 23px; background: #1e293b88; box-shadow: 0 12px 28px #0003; }
+.place-image { position: relative; height: 185px; overflow: hidden; background: #020617; }
+.place-image img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
+.place-card:hover .place-image img { transform: scale(1.04); }
+.image-shade { position: absolute; inset: 0; background: linear-gradient(to top, #020617dd, transparent 65%); }
+.category-label { position: absolute; top: 12px; left: 12px; padding: 5px 9px; border: 1px solid #ffffff22; border-radius: 20px; background: #0f172acc; color: #c7d2fe; font-size: 9px; font-weight: 800; }
+.like-button { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border: 1px solid #ffffff22; border-radius: 12px; background: #0f172aaa; color: #e2e8f0; font-size: 20px; cursor: pointer; }
+.like-button.liked { background: #f43f5e; color: white; border-color: #fb7185; }
+.rating { position: absolute; bottom: 11px; left: 12px; padding: 4px 7px; border: 1px solid #ffffff20; border-radius: 8px; background: #0f172acc; color: #fbbf24; font-size: 10px; font-weight: 800; }
+.place-info { padding: 13px 14px 14px; }
+.place-info h2 { margin: 0 0 7px; color: #f8fafc; font-size: 14px; font-weight: 850; }
+.description { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; color: #cbd5e1; font-size: 10px; line-height: 1.65; }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.tags span { padding: 3px 6px; border: 1px solid #47556977; border-radius: 6px; background: #33415588; color: #cbd5e1; font-size: 9px; }
+.place-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 11px; padding-top: 10px; border-top: 1px solid #334155aa; }
+.address { display: flex; align-items: center; gap: 5px; min-width: 0; color: #818cf8; font-size: 11px; }
+.address span { overflow: hidden; color: #94a3b8; text-overflow: ellipsis; white-space: nowrap; }
+.navigation-button { flex: 0 0 auto; border: 0; border-radius: 10px; padding: 7px 10px; background: #10b981; color: white; font-size: 10px; font-weight: 800; cursor: pointer; }
+.empty-state { display: flex; flex-direction: column; align-items: center; padding: 65px 15px; text-align: center; }
+.empty-state > div { display: grid; place-items: center; width: 70px; height: 70px; margin-bottom: 16px; border: 1px solid #334155; border-radius: 22px; background: #1e293b; color: #818cf8; font-size: 38px; }
+.empty-state h3 { margin: 0; font-size: 14px; }
+.empty-state p { max-width: 260px; color: #94a3b8; font-size: 10px; line-height: 1.7; }
+.primary-button, .save-button { border: 0; border-radius: 13px; padding: 11px 16px; background: linear-gradient(110deg, #4f46e5, #9333ea); color: white; font-size: 11px; font-weight: 800; cursor: pointer; }
+.bottom-nav { position: absolute; bottom: 12px; left: 5%; width: 90%; display: flex; justify-content: space-around; padding: 10px 8px 8px; border: 1px solid #ffffff1c; border-radius: 22px; background: #0f172ae8; backdrop-filter: blur(20px); box-shadow: 0 10px 30px #0008; z-index: 4; }
+.bottom-nav button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; border: 0; background: transparent; color: #94a3b8; font-size: 19px; cursor: pointer; }
+.bottom-nav button small { font-size: 9px; font-weight: 700; }
+.bottom-nav button.nav-active { color: #a5b4fc; }
+.bottom-nav em { position: absolute; top: -4px; right: -9px; display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: #f43f5e; color: white; font-size: 8px; font-style: normal; }
+.overlay { position: absolute; inset: 0; z-index: 10; display: flex; background: #020617c9; backdrop-filter: blur(8px); }
+.sidebar { position: relative; display: flex; flex-direction: column; width: min(300px, 84%); height: 100%; border-right: 1px solid #334155; background: #0f172a; box-shadow: 20px 0 50px #0007; }
+.panel-heading, .modal-heading { display: flex; align-items: center; justify-content: space-between; padding: 17px; border-bottom: 1px solid #334155; }
+.panel-heading div, .modal-heading div { display: flex; flex-direction: column; gap: 5px; }
+.panel-heading strong, .modal-heading strong { font-size: 12px; }
+.panel-heading small, .modal-heading small { color: #94a3b8; font-size: 9px; }
+.panel-heading button, .modal-heading button { width: 30px; height: 30px; border: 0; border-radius: 10px; background: #1e293b; color: #cbd5e1; font-size: 21px; cursor: pointer; }
+.region-groups { flex: 1; overflow-y: auto; padding: 12px; }
+.region-groups p { margin: 9px 7px; color: #64748b; font-size: 9px; font-weight: 800; letter-spacing: .5px; }
+.region-groups button { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 4px; padding: 10px; border: 0; border-radius: 12px; background: transparent; color: #cbd5e1; font-size: 10px; text-align: left; cursor: pointer; }
+.region-groups button.chosen { background: linear-gradient(110deg, #4f46e5, #7c3aed); color: white; }
+.region-groups button small { padding: 3px 6px; border-radius: 10px; background: #ffffff18; }
+.sidebar footer { padding: 13px; border-top: 1px solid #334155; color: #64748b; text-align: center; font-size: 9px; }
+.modal-overlay { align-items: center; justify-content: center; padding: 14px; }
+.register-modal { display: flex; flex-direction: column; width: min(510px, 100%); max-height: 92%; overflow: hidden; border: 1px solid #475569; border-radius: 26px; background: #0f172a; box-shadow: 0 25px 80px #000a; }
+.modal-content { overflow-y: auto; padding: 16px; }
+.modal-content label, .location-heading label { display: block; margin: 12px 0 6px; color: #94a3b8; font-size: 10px; font-weight: 800; }
+.modal-content input, .modal-content select, .modal-content textarea { width: 100%; min-width: 0; padding: 10px 11px; border: 1px solid #334155; border-radius: 11px; outline: none; background: #1e293b; color: #f8fafc; font: inherit; font-size: 11px; }
+.modal-content input:focus, .modal-content select:focus, .modal-content textarea:focus { border-color: #818cf8; }
+.modal-content input::placeholder, .modal-content textarea::placeholder { color: #64748b; }
+.form-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 9px; }
+.form-grid label { margin-top: 12px; }
+.location-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.location-heading label { margin-bottom: 6px; }
+.tabs { display: flex; gap: 3px; padding: 3px; border: 1px solid #334155; border-radius: 11px; background: #1e293b; }
+.tabs button { border: 0; border-radius: 8px; padding: 7px 9px; background: transparent; color: #94a3b8; font-size: 9px; cursor: pointer; }
+.tabs button.active { background: #4f46e5; color: white; font-weight: 800; }
+.map-picker { position: relative; height: 175px; overflow: hidden; border: 1px solid #475569; border-radius: 15px; background-color: #111827; background-image: radial-gradient(#475569 1px, transparent 1px); background-size: 17px 17px; cursor: crosshair; }
+.map-hint { position: absolute; top: 9px; left: 9px; padding: 6px 8px; border: 1px solid #475569; border-radius: 8px; background: #0f172add; color: #cbd5e1; font-size: 9px; pointer-events: none; }
+.map-pin { position: absolute; display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -100%); pointer-events: none; }
+.map-pin span { max-width: 220px; margin-bottom: 3px; padding: 4px 7px; border-radius: 8px; background: #4f46e5; color: white; font-size: 8px; white-space: nowrap; }
+.map-pin b { color: #fb7185; font-size: 25px; filter: drop-shadow(0 3px 3px #000); }
+.address-search { margin-top: 8px; }
+.address-results { max-height: 145px; overflow-y: auto; margin-top: 7px; border: 1px solid #334155; border-radius: 11px; background: #020617; }
+.address-results button { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; padding: 9px; border: 0; border-bottom: 1px solid #1e293b; background: transparent; color: #e2e8f0; text-align: left; cursor: pointer; }
+.address-results button:hover { background: #1e293b; }
+.address-results button span { display: flex; flex-direction: column; gap: 4px; }
+.address-results button b { color: #a5b4fc; font-size: 10px; }
+.address-results button small { color: #cbd5e1; font-size: 9px; }
+.address-results button em { color: #94a3b8; font-size: 9px; font-style: normal; }
+.address-results p { padding: 10px; color: #64748b; font-size: 10px; }
+.modal-content .selected-address { margin-top: 8px; border-color: #6366f177; background: #020617; color: #a5b4fc; }
+.modal-actions { display: flex; gap: 8px; padding: 13px 16px; border-top: 1px solid #334155; }
+.cancel-button { width: 34%; border: 0; border-radius: 12px; background: #1e293b; color: #cbd5e1; font-size: 11px; font-weight: 800; cursor: pointer; }
+.modal-actions .save-button { flex: 1; padding: 12px; }
+.toast { position: absolute; bottom: 82px; left: 50%; z-index: 20; max-width: 90%; padding: 10px 15px; transform: translateX(-50%); border: 1px solid #818cf866; border-radius: 30px; background: #1e293bf2; color: white; box-shadow: 0 8px 25px #0008; font-size: 10px; white-space: nowrap; }
+@media (max-width: 600px) {
+  .curator-app { padding: 0; }
+  .viewport-tools { display: none; }
+  .device-frame, .phone-frame, .wide-frame { width: 100%; max-width: none; height: 100dvh; min-height: 560px; border: 0; border-radius: 0; }
+  .place-image { height: 180px; }
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .register-modal { max-height: 92dvh; border-radius: 25px 25px 0 0; }
 }
 </style>
