@@ -71,7 +71,7 @@
             </div>
             <div class="place-footer">
               <div class="address">⌖ <span>{{ place.address }}</span></div>
-              <button class="navigation-button" @click="openNavigation(place)">➤ 길찾기</button>
+              <div class="place-actions"><button class="edit-place-button" @click="editPlace(place)">✎ 수정</button><button class="delete-place-button" @click="deletePlace(place)">× 삭제</button><button class="navigation-button" @click="openNavigation(place)">➤ 길찾기</button></div>
             </div>
           </div>
         </article>
@@ -126,7 +126,7 @@
       <div v-if="isRegisterOpen" class="overlay modal-overlay" @click.self="closeRegister">
         <section class="register-modal">
           <header class="modal-heading">
-            <div><strong>✨ 시크릿 명소 추가하기</strong><small>지도나 주소 검색으로 위치를 설정하세요</small></div>
+            <div><strong>{{ editingPlaceId !== null ? '✨ 명소 수정하기' : '✨ 시크릿 명소 추가하기' }}</strong><small>지도나 주소 검색으로 위치를 설정하세요</small></div>
             <button @click="closeRegister">×</button>
           </header>
           <div class="modal-content">
@@ -186,7 +186,7 @@
           </div>
           <footer class="modal-actions">
             <button class="cancel-button" @click="closeRegister">취소</button>
-            <button class="save-button" @click="savePlace">✓ 장소 저장하기</button>
+            <button class="save-button" @click="savePlace">✓ {{ editingPlaceId !== null ? '수정 내용 저장' : '장소 저장하기' }}</button>
           </footer>
         </section>
       </div>
@@ -437,6 +437,7 @@ export default {
       statusTimer: null,
       batteryManager: null,
       isRegisterOpen: false,
+      editingPlaceId: null,
       registerTab: 'map',
       newPlace: EMPTY_PLACE(),
       mapPin: { x: 48, y: 42, label: '서울 용산구 후암동 근처' },
@@ -640,6 +641,7 @@ export default {
       this.isSidebarOpen = false;
     },
     openRegister() {
+      this.editingPlaceId = null;
       this.newPlace = { ...EMPTY_PLACE(), cityId: this.selectedCityId === 'all' ? this.regions[0].id : this.selectedCityId };
       this.registerTab = 'map';
       this.addressSearchQuery = '';
@@ -647,6 +649,38 @@ export default {
       this.searchedAddresses = [];
       this.isRegisterOpen = true;
       nextTick(() => this.initializeMap());
+    },
+    editPlace(place) {
+      this.editingPlaceId = place.id;
+      this.newPlace = {
+        cityId: place.cityId || this.regions[0].id,
+        name: place.name || '',
+        category: place.category || '핫플레이스',
+        address: place.address || '',
+        detailAddress: place.detailAddress || '',
+        description: place.description || '',
+        tags: Array.isArray(place.tags) ? place.tags.join(', ') : (place.tags || ''),
+        image: place.image || '',
+        coordinates: place.coordinates ? { ...place.coordinates } : { lat: null, lng: null }
+      };
+      this.registerTab = 'map';
+      this.addressSearchQuery = '';
+      this.mapLocationQuery = '';
+      this.searchedAddresses = [];
+      this.isRegisterOpen = true;
+      nextTick(() => this.initializeMap());
+    },
+    async deletePlace(place) {
+      if (!window.confirm(`“${place.name}” 장소를 삭제할까요?`)) return;
+      const previous = this.places;
+      this.places = this.places.filter(item => item.id !== place.id);
+      try {
+        await this.persistAllPlaces();
+        this.showToast('장소를 삭제했습니다.');
+      } catch (error) {
+        this.places = previous;
+        this.showToast('삭제 저장에 실패했습니다. 다시 시도해주세요.');
+      }
     },
     closeRegister() {
       this.isRegisterOpen = false;
@@ -669,11 +703,16 @@ export default {
     },
     openNavigation(place) {
       if (place.kakaoUrl) { window.open(place.kakaoUrl, '_blank', 'noopener'); return; }
-      const destination = `${place.address || ''} ${place.name || ''}`.trim();
-      const encoded = encodeURIComponent(destination);
-      // Naver Map search URL keeps the saved place/address as the destination query.
-      window.open(`https://map.naver.com/v5/search/${encoded}`, '_blank', 'noopener');
-      this.showToast(`${place.name || place.address} 길찾기를 연결합니다.`);
+      const lat = Number(place.coordinates?.lat), lng = Number(place.coordinates?.lng);
+      const name = String(place.name || place.address || '목적지').trim();
+      if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001) {
+        const kakaoRoute = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
+        window.open(kakaoRoute, '_blank', 'noopener');
+      } else {
+        const destination = `${place.address || ''} ${name}`.trim();
+        window.open(`https://map.naver.com/p/search/${encodeURIComponent(destination)}`, '_blank', 'noopener');
+      }
+      this.showToast(`${name} 길찾기를 연결합니다.`);
     },
     async loadLeaflet() {
       if (window.L) return window.L;
@@ -826,8 +865,10 @@ export default {
       const tags = this.newPlace.tags
         ? this.newPlace.tags.split(',').map(tag => tag.trim()).filter(Boolean)
         : ['추천핫플', 'NEW'];
+      const existingPlace = this.editingPlaceId !== null ? this.places.find(item => item.id === this.editingPlaceId) : null;
       const place = {
-        id: Date.now(),
+        ...(existingPlace || {}),
+        id: existingPlace ? existingPlace.id : Date.now(),
         cityId: this.newPlace.cityId,
         name: this.newPlace.name.trim(),
         category: this.newPlace.category || '핫플레이스',
@@ -836,15 +877,20 @@ export default {
         detailAddress: this.newPlace.detailAddress || '상세위치 정보',
         description: this.newPlace.description || '방문객들이 강력 추천하는 새로운 핫플레이스입니다.',
         image: this.newPlace.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
-        likes: 1,
+        likes: existingPlace ? (existingPlace.likes || 0) : 1,
         coordinates: { ...this.newPlace.coordinates },
         tags
       };
-      this.places.unshift(place);
+      if (existingPlace) {
+        this.places = this.places.map(item => item.id === place.id ? place : item);
+      } else {
+        this.places.unshift(place);
+      }
       try {
         await this.persistAllPlaces();
       } catch (error) {
-        this.places = this.places.filter(item => item.id !== place.id);
+        if (existingPlace) this.places = this.places.map(item => item.id === existingPlace.id ? existingPlace : item);
+        else this.places = this.places.filter(item => item.id !== place.id);
         console.error('IndexedDB 저장 실패:', error);
         const reason = error && (error.name || error.message) ? `${error.name || 'Error'}: ${error.message || ''}` : '';
         this.showToast(`IndexedDB 저장 실패${reason ? ` (${reason})` : ''}. 브라우저 저장 설정을 확인해주세요.`);
@@ -855,7 +901,8 @@ export default {
       this.searchInput = '';
       this.isRegisterOpen = false;
       this.newPlace = EMPTY_PLACE();
-      this.showToast('✨ 나만의 시크릿 플레이스가 등록되었습니다!');
+      this.editingPlaceId = null;
+      this.showToast(existingPlace ? '장소 정보를 수정했습니다.' : '✨ 나만의 시크릿 플레이스가 등록되었습니다!');
     },
     resetExplore() {
       this.activeTab = 'explore';
@@ -945,6 +992,9 @@ export default {
 .place-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 11px; padding-top: 10px; border-top: 1px solid #334155aa; }
 .address { display: flex; align-items: center; gap: 5px; min-width: 0; color: #818cf8; font-size: 11px; }
 .address span { overflow: hidden; color: #94a3b8; text-overflow: ellipsis; white-space: nowrap; }
+.place-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.edit-place-button, .delete-place-button { flex: 0 0 auto; border: 0; border-radius: 9px; padding: 7px 9px; color: #e2e8f0; background: #334155; font-size: 10px; font-weight: 800; cursor: pointer; }
+.delete-place-button { background: #7f1d1d; }
 .navigation-button { flex: 0 0 auto; border: 0; border-radius: 10px; padding: 7px 10px; background: #10b981; color: white; font-size: 10px; font-weight: 800; cursor: pointer; }
 .empty-state { display: flex; flex-direction: column; align-items: center; padding: 65px 15px; text-align: center; }
 .empty-state > div { display: grid; place-items: center; width: 70px; height: 70px; margin-bottom: 16px; border: 1px solid #334155; border-radius: 22px; background: #1e293b; color: #818cf8; font-size: 38px; }
