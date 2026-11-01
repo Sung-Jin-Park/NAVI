@@ -1,14 +1,15 @@
 <template>
   <div class="app-root">
-    <!-- 배경 유기적 블러 효과 -->
+    <!-- 배경 유기적 3D 무드 블롭 효과 -->
     <div class="bg-blob blob-1"></div>
     <div class="bg-blob blob-2"></div>
     <div class="bg-blob blob-3"></div>
 
     <v-app class="glass-app">
-      <!-- 📱 스마트폰 디바이스 프레임 토글 & 헤더 (상단 bar) -->
+      <!-- 📱 상단 헤더 & iPhone 17 다이내믹 아일랜드 바 -->
       <header class="app-header px-4 py-3 d-flex align-center justify-between">
         <div class="d-flex align-center gap-2">
+          <!-- 모바일 좌측 사이드바 토글 버튼 -->
           <v-btn
             icon="mdi-menu"
             variant="text"
@@ -24,7 +25,7 @@
           </div>
         </div>
 
-        <!-- 아이폰 17 다이내믹 아일랜드 & 뷰 모드 전환 버튼 -->
+        <!-- 아이폰 17 다이내믹 아일랜드 & 디바이스 뷰 전환 -->
         <div class="d-flex align-center gap-2">
           <button 
             class="dynamic-island-pill" 
@@ -37,19 +38,8 @@
 
           <v-btn
             icon
-            variant="tonal"
             color="primary"
-            class="rounded-circle elevation-1"
-            @click="isPhoneFrame = !isPhoneFrame"
-            :title="isPhoneFrame ? '전체 화면으로 보기' : '아이폰 프레임으로 보기'"
-          >
-            <v-icon>{{ isPhoneFrame ? 'mdi-monitor' : 'mdi-cellphone' }}</v-icon>
-          </v-btn>
-
-          <v-btn
-            icon
-            color="primary"
-            class="add-spot-btn rounded-xl elevation-3"
+            class="add-spot-btn rounded-xl elevation-3 ml-1"
             @click="openAddModal"
           >
             <v-icon color="white" size="22">mdi-plus</v-icon>
@@ -58,13 +48,13 @@
       </header>
 
       <!-- 메인 레이아웃 (좌측 대한민국 17개 도시 네비게이션 + 메인 피드) -->
-      <div class="app-body d-flex flex-grow-1" :class="{ 'phone-frame-container': isPhoneFrame }">
+      <div class="app-body d-flex flex-grow-1">
         
         <!-- 🗺️ [전국 17개 광역시·도 사이드 네비게이션] -->
         <v-navigation-drawer
           v-model="drawer"
           :permanent="$vuetify.display.lgAndUp"
-          width="260"
+          width="270"
           class="city-drawer border-0"
         >
           <div class="pa-4">
@@ -78,12 +68,12 @@
                 v-for="city in cities"
                 :key="city.id"
                 :value="city.id"
-                :active="selectedCity === city.id"
+                :active="String(selectedCity) === String(city.id)"
                 class="city-item rounded-xl mb-1.5 transition-all"
                 @click="selectCity(city.id)"
               >
                 <template #prepend>
-                  <div class="city-icon-wrapper mr-3" :class="{ 'active': selectedCity === city.id }">
+                  <div class="city-icon-wrapper mr-3" :class="{ 'active': String(selectedCity) === String(city.id) }">
                     <v-icon size="18">{{ city.icon }}</v-icon>
                   </div>
                 </template>
@@ -92,7 +82,7 @@
                 </v-list-item-title>
                 <template #append>
                   <v-chip size="x-small" variant="tonal" color="grey" class="font-weight-bold">
-                    {{ getPlaceCount(city.id) }}
+                    {{ getPlaceCount(city.id) }}개
                   </v-chip>
                 </template>
               </v-list-item>
@@ -100,11 +90,11 @@
           </div>
         </v-navigation-drawer>
 
-        <!-- 📱 메인 콘텐츠 컨테이너 -->
+        <!-- 📱 메인 콘텐츠 메인 영역 -->
         <v-main class="main-content flex-grow-1">
           <v-container class="pa-4 pa-sm-6 max-w-screen-md mx-auto">
             
-            <!-- 상단 도시 캐러셀 칩 (모바일/서브 네비) -->
+            <!-- 상단 도시 캐러셀 칩 (모바일 빠른 필터) -->
             <div class="city-scroll-wrapper mb-5">
               <v-slide-group v-model="selectedCity" show-arrows mandatory class="py-1">
                 <v-slide-group-item
@@ -125,7 +115,7 @@
               </v-slide-group>
             </div>
 
-            <!-- 검색바 & 필터 -->
+            <!-- 검색바 -->
             <div class="search-box-wrapper mb-6">
               <v-text-field
                 v-model="searchQuery"
@@ -136,14 +126,10 @@
                 flat
                 clearable
                 class="search-bar rounded-2xl elevation-2"
-              >
-                <template #append-inner>
-                  <v-icon color="grey-darken-1" size="20">mdi-tune-variant</v-icon>
-                </template>
-              </v-text-field>
+              ></v-text-field>
             </div>
 
-            <!-- 장소 목록 헤더 -->
+            <!-- 목록 제목 및 정보 헤더 -->
             <div class="d-flex align-center justify-between mb-4 px-1">
               <h2 class="text-h6 font-weight-black text-grey-darken-4 d-flex align-center gap-2">
                 <span>{{ currentCityObj.name }}</span>
@@ -153,9 +139,9 @@
               </h2>
             </div>
 
-            <!-- 명소 카드 리스트 -->
+            <!-- 명소 카드 목록 -->
             <div class="places-grid">
-              <!-- 데이터가 없을 때 -->
+              <!-- 결과 없음 -->
               <div v-if="filteredPlaces.length === 0" class="empty-state text-center py-12 pa-6 rounded-3xl elevation-1">
                 <v-avatar color="indigo-lighten-5" size="80" class="mb-4">
                   <v-icon size="40" color="primary">mdi-map-marker-question-outline</v-icon>
@@ -167,7 +153,7 @@
                 </v-btn>
               </div>
 
-              <!-- 장소 카드리스트 -->
+              <!-- 카드 데이터 아이템 -->
               <div
                 v-for="place in filteredPlaces"
                 :key="place.id"
@@ -206,7 +192,7 @@
                     <span class="text-truncate font-weight-medium">{{ place.address }}</span>
                   </div>
 
-                  <!-- 네이버 지도 / 카카오내비 연동 버튼 -->
+                  <!-- 네이버 길찾기 연동 -->
                   <v-btn
                     color="#03C75A"
                     class="naver-btn text-white text-caption font-weight-bold rounded-pill px-4 elevation-0"
@@ -224,7 +210,7 @@
         </v-main>
       </div>
 
-      <!-- 📍 [최신 트렌드 장소 등록 모달: 지도 선택 & 우편번호 검색 포함] -->
+      <!-- 📍 [등록 모달: 지도 선택 & 우편번호/주소 입력 지원] -->
       <v-dialog v-model="dialog" max-width="480px" transition="dialog-bottom-transition" persistent>
         <v-card class="register-modal rounded-3xl pa-2">
           <v-card-title class="d-flex align-center justify-between pt-4 px-4 pb-2">
@@ -238,17 +224,17 @@
           </v-card-title>
 
           <v-card-text class="pt-2">
-            <!-- 등록 방법 탭 (주소 직접/검색 vs 지도 핀 찍기) -->
+            <!-- 등록 방법 입력 탭 (주소 검색 vs 지도 핀 찍기) -->
             <v-tabs v-model="inputMode" color="primary" align-tabs="center" grow class="mb-4 input-mode-tabs rounded-xl">
               <v-tab value="address" class="text-caption font-weight-bold">
-                <v-icon size="16" class="mr-1">mdi-textbox-password</v-icon> 주소 검색 / 입력
+                <v-icon size="16" class="mr-1">mdi-textbox-password</v-icon> 주소 직접/검색 입력
               </v-tab>
               <v-tab value="map" class="text-caption font-weight-bold">
-                <v-icon size="16" class="mr-1">mdi-map-marker-check</v-icon> 지도에서 핀 선택
+                <v-icon size="16" class="mr-1">mdi-map-marker-check</v-icon> 지도에서 핀 찍기
               </v-tab>
             </v-tabs>
 
-            <!-- 도시 선택 -->
+            <!-- 17개 도시 선택 -->
             <v-select
               v-model="newPlace.cityId"
               :items="cities"
@@ -261,33 +247,33 @@
               hide-details
             ></v-select>
 
-            <!-- 장소 이름 -->
+            <!-- 명소 명칭 -->
             <v-text-field
               v-model="newPlace.name"
-              label="명소 / 장소 이름 (예: 성수 디저트 카페)"
+              label="명소 이름 (예: 한강공원 / 성수 카페)"
               variant="outlined"
               density="comfortable"
               class="rounded-xl mb-3"
               hide-details
             ></v-text-field>
 
-            <!-- 카테고리 선택 -->
+            <!-- 카테고리 -->
             <v-combobox
               v-model="newPlace.category"
               :items="categorySuggestions"
-              label="카테고리 (예: 카페, 뷰맛집, 랜드마크)"
+              label="카테고리 (예: 카페, 랜드마크, 맛집)"
               variant="outlined"
               density="comfortable"
               class="rounded-xl mb-3"
               hide-details
             ></v-combobox>
 
-            <!-- 1. 주소 직접/자동 검색 모드 -->
+            <!-- A. 주소 직접 / 검색 기능 -->
             <div v-if="inputMode === 'address'" class="mb-3">
               <div class="d-flex gap-2 mb-2">
                 <v-text-field
                   v-model="newPlace.address"
-                  label="도로명 주소"
+                  label="도로명 주소 입력"
                   variant="outlined"
                   density="comfortable"
                   class="rounded-xl flex-grow-1"
@@ -304,13 +290,13 @@
                 </v-btn>
               </div>
 
-              <!-- 주소 검색 연동 가상 팝업 결과 -->
+              <!-- 주소 검색 결과 자동완성 리스트 -->
               <div v-if="addressSearchResults.length > 0" class="address-result-box pa-2 rounded-xl border mb-3">
-                <div class="text-caption text-grey font-weight-bold mb-1 px-2">검색 결과 목록 (클릭시 자동입력)</div>
+                <div class="text-caption text-grey font-weight-bold mb-1 px-2">검색 추천 결과 (클릭 시 자동 입력)</div>
                 <div
                   v-for="(addr, i) in addressSearchResults"
                   :key="i"
-                  class="addr-item pa-2 rounded-lg cursor-pointer hover:bg-slate-100 text-caption font-weight-medium"
+                  class="addr-item pa-2 rounded-lg cursor-pointer text-caption font-weight-medium"
                   @click="applySearchedAddress(addr)"
                 >
                   <v-icon size="14" color="primary" class="mr-1">mdi-map-marker-outline</v-icon>
@@ -319,13 +305,13 @@
               </div>
             </div>
 
-            <!-- 2. 인터랙티브 지도 핀 선택 모드 -->
+            <!-- B. 대화형 지도 핀 찍기 기능 -->
             <div v-else class="map-picker-container mb-3">
               <div class="map-mockup rounded-2xl relative overflow-hidden" @click="onMapClick">
                 <div class="map-grid-overlay"></div>
-                <div class="map-instruction">지도를 터치하여 위치 핀을 찍으세요</div>
+                <div class="map-instruction">지도를 클릭/터치하면 그곳에 핀이 형성됩니다</div>
                 
-                <!-- 동적 마커 -->
+                <!-- 마커 애니메이션 핀 -->
                 <div
                   class="map-marker-pin"
                   :style="{ left: pinPos.x + '%', top: pinPos.y + '%' }"
@@ -335,14 +321,14 @@
                 </div>
               </div>
               <div class="text-caption text-grey-darken-1 mt-1 text-center font-weight-medium">
-                선택 좌표: 위도 {{ pinCoords.lat }}, 경도 {{ pinCoords.lng }}
+                선택된 좌표: 위도 {{ pinCoords.lat }}, 경도 {{ pinCoords.lng }}
               </div>
             </div>
 
-            <!-- 상세 설명 -->
+            <!-- 소개글 입력 -->
             <v-textarea
               v-model="newPlace.description"
-              label="이 장소에 대한 매력적인 소개글을 남겨주세요."
+              label="이 장소가 특별한 이유 / 시크릿 팁"
               variant="outlined"
               density="comfortable"
               rows="3"
@@ -356,13 +342,13 @@
               block
               color="primary"
               size="large"
-              class="rounded-2xl py-3 font-weight-black elevation-4"
+              class="rounded-2xl py-3 font-weight-black elevation-3"
               @click="addPlace"
             >
               장소 저장 및 등록 완료
             </v-btn>
           </v-card-actions>
-        </v-card>
+        </card>
       </v-dialog>
     </v-app>
   </div>
@@ -374,14 +360,13 @@ export default {
   data() {
     return {
       drawer: null,
-      isPhoneFrame: false,
       isIslandExpanded: false,
-      selectedCity: 'seoul', // 기존 ID 타입 불일치 버그 수정 (String 통일)
+      selectedCity: 'seoul', // [버그 수정]: String 타입으로 고정
       searchQuery: '',
       dialog: false,
       inputMode: 'address', // 'address' | 'map'
       
-      // 대한민국 17개 광역시·도 완벽 정의
+      // 🇰🇷 대한민국 17개 광역시·도 완벽 구성
       cities: [
         { id: 'seoul', name: '서울특별시', icon: 'mdi-city-variant' },
         { id: 'busan', name: '부산광역시', icon: 'mdi-waves' },
@@ -404,7 +389,7 @@ export default {
 
       categorySuggestions: ['핫플레이스', '카페', '맛집', '랜드마크', '힐링스팟', '야경명소', '오션뷰'],
 
-      // 등록 모달 상태
+      // 신규 등록 객체
       newPlace: {
         cityId: 'seoul',
         name: '',
@@ -413,14 +398,13 @@ export default {
         description: '',
       },
 
-      // 주소 검색 API 결과 가상 시뮬레이터
       addressSearchResults: [],
 
-      // 지도 선택 위치 상태
+      // 지도 핀 찍기 시뮬레이터 좌표
       pinPos: { x: 50, y: 50 },
       pinCoords: { lat: 37.5665, lng: 126.9780 },
 
-      // 데이터 샘플
+      // 샘플 명소 데이터
       places: [
         {
           id: 1,
@@ -472,11 +456,11 @@ export default {
   },
   computed: {
     currentCityObj() {
-      return this.cities.find((c) => c.id === this.selectedCity) || this.cities[0];
+      return this.cities.find((c) => String(c.id) === String(this.selectedCity)) || this.cities[0];
     },
     filteredPlaces() {
       return this.places.filter((p) => {
-        // 기존 ID 타입 불일치 버그 완벽 수정
+        // [버그 수정 1]: String 매칭으로 완벽한 타입 일치
         const matchesCity = String(p.cityId) === String(this.selectedCity);
         const query = this.searchQuery.toLowerCase().trim();
         const matchesQuery =
@@ -510,17 +494,17 @@ export default {
       this.dialog = true;
     },
     
-    // 주소 검색 API 시뮬레이터 (우편번호 / 도로명)
+    // 주소 검색 API 결과 시뮬레이션
     searchAddressApi() {
       if (!this.newPlace.address) {
-        alert('검색할 도로명이나 지역 이름을 입력해주세요.');
+        alert('검색할 도로명 주소를 입력해주세요.');
         return;
       }
       const base = this.currentCityObj.name;
       this.addressSearchResults = [
-        `${base} 센터로 123 (가상 우편번호 06123)`,
-        `${base} 테헤란로 456번길 7 (가상 우편번호 06456)`,
-        `${base} 중앙로 89 (가상 우편번호 06789)`,
+        `${base} 테헤란로 123 (우편번호 06123)`,
+        `${base} 중앙로 45번길 7 (우편번호 06456)`,
+        `${base} 대학로 89 (우편번호 06789)`,
       ];
     },
     applySearchedAddress(addr) {
@@ -528,27 +512,25 @@ export default {
       this.addressSearchResults = [];
     },
 
-    // 인터랙티브 지도 클릭 핀 선택
+    // 대화형 지도 클릭 핀 선택
     onMapClick(e) {
       const rect = e.currentTarget.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
       
       this.pinPos = { x: Math.round(x), y: Math.round(y) };
-      
-      // 좌표 기반 임의 지오코딩 변환 시뮬레이션
       this.pinCoords = {
         lat: (37.5 + (100 - y) * 0.01).toFixed(4),
         lng: (126.9 + x * 0.01).toFixed(4),
       };
       
-      this.newPlace.address = `${this.currentCityObj.name} 스마트 시티 핀 지점 (${this.pinCoords.lat}, ${this.pinCoords.lng})`;
+      this.newPlace.address = `${this.currentCityObj.name} 핀 선택 위치 (${this.pinCoords.lat}, ${this.pinCoords.lng})`;
     },
 
-    // 장소 추가 (버그 수정: 폼 초기화 및 추가 후 생성 위치로 즉시 선택)
+    // 장소 저장 ([버그 수정 2]: 완전한 폼 초기화 및 해당 도시 자동 선택)
     addPlace() {
       if (!this.newPlace.name || !this.newPlace.address) {
-        alert('명소 이름과 주소는 필수 입력 사항입니다!');
+        alert('명소 이름과 주소는 필수입니다!');
         return;
       }
 
@@ -558,16 +540,16 @@ export default {
         name: this.newPlace.name,
         category: this.newPlace.category || '핫플레이스',
         address: this.newPlace.address,
-        description: this.newPlace.description || '새롭게 등록된 추천 핫플레이스입니다.',
+        description: this.newPlace.description || '새롭게 등록된 추천 명소입니다.',
         favorite: false,
       };
 
       this.places.unshift(createdSpot);
 
-      // 내가 추가한 장소의 도시로 자동 이동
+      // 내가 신규 등록한 장소의 도시로 화면 자동 변경
       this.selectedCity = this.newPlace.cityId;
 
-      // 폼 리셋
+      // 입력 폼 초기화 리셋
       this.newPlace = {
         cityId: this.selectedCity,
         name: '',
@@ -583,7 +565,7 @@ export default {
 </script>
 
 <style scoped>
-/* 🎨 iOS 19 & 아이폰 17 스타일 테마 시스템 */
+/* 🎨 iOS 19 & 아이폰 17 스타일 모던 테마 */
 .app-root {
   min-height: 100vh;
   background-color: #0f172a;
@@ -596,7 +578,7 @@ export default {
   background: transparent !important;
 }
 
-/* 유기적 그라데이션 블러 데코레이션 */
+/* 배경 블러 그라데이션 */
 .bg-blob {
   position: fixed;
   border-radius: 50%;
@@ -609,7 +591,7 @@ export default {
 .blob-2 { top: 45%; right: -100px; width: 400px; height: 400px; background: #a855f7; }
 .blob-3 { bottom: -80px; left: 30%; width: 380px; height: 380px; background: #06b6d4; }
 
-/* 📱 아이폰 17 다이내믹 아일랜드 캡슐 */
+/* 📱 아이폰 17 다이내믹 아일랜드 UI */
 .dynamic-island-pill {
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(12px);
@@ -644,11 +626,11 @@ export default {
   letter-spacing: -0.2px;
 }
 
-/* 헤더 & 브랜드 */
+/* 헤더 & 브랜딩 */
 .app-header {
   position: relative;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(226, 232, 240, 0.8);
 }
@@ -658,7 +640,7 @@ export default {
   border-radius: 10px;
   background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
   display: flex;
-  align-center: center;
+  align-items: center;
   justify-content: center;
 }
 .gradient-text {
@@ -667,7 +649,7 @@ export default {
   -webkit-text-fill-color: transparent;
 }
 
-/* 🗺️ 도시 네비게이션 서랍 */
+/* 🗺️ 도시 사이드바 서랍 */
 .city-drawer {
   background: rgba(255, 255, 255, 0.85) !important;
   backdrop-filter: blur(20px);
@@ -689,7 +671,7 @@ export default {
   color: white;
 }
 
-/* 상단 캡슐 캐러셀 탭 */
+/* 상단 캡슐 칩 */
 .city-capsule-chip {
   border: 1px solid #e2e8f0;
   background: white;
@@ -704,7 +686,7 @@ export default {
   border-color: transparent;
 }
 
-/* 명소 카드 UI 디자인 */
+/* 명소 카드 디자인 */
 .place-card {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(16px);
@@ -736,7 +718,7 @@ export default {
   overflow: hidden;
 }
 
-/* 📍 지도 인터랙션 선택 시뮬레이터 */
+/* 📍 지도 인터랙티브 핀 찍기 시뮬레이터 */
 .map-picker-container {
   border: 1px solid #e2e8f0;
   padding: 6px;
@@ -784,7 +766,7 @@ export default {
   100% { transform: translateX(-50%) scale(3); opacity: 0; }
 }
 
-/* 주소 연동 결과 선택 영역 */
+/* 주소 연동 결과 세팅 */
 .address-result-box {
   background: #f8fafc;
   max-height: 120px;
