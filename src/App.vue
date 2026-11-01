@@ -13,22 +13,13 @@
       <div class="glow glow-a"></div><div class="glow glow-b"></div>
 
       <div v-if="isPhoneFrame" class="status-bar">
-        <span>9:41</span><span>5G ▰</span>
+        <span>{{ statusTime }}</span>
+        <span class="status-icons"><span>●</span><span>◖))</span><span class="battery">{{ batteryLevel }}<i :class="{ charging: isCharging }"></i></span></span>
       </div>
 
-      <div v-if="isPhoneFrame" class="dynamic-island" :class="{ expanded: dynamicIslandExpanded }"
-           @click="dynamicIslandExpanded = !dynamicIslandExpanded">
-        <template v-if="!dynamicIslandExpanded">
-          <i></i><span>Curator AI</span><b></b>
-        </template>
-        <template v-else>
-          <div class="island-detail">
-            <span class="flag">🇰🇷</span>
-            <div><strong>전국 17개 도시 큐레이팅</strong><small>{{ currentRegion.name }} 탐색 중 · {{ filteredPlaces.length }}개 장소</small></div>
-            <button @click.stop="openRegister">＋ 등록</button>
-          </div>
-        </template>
-      </div>
+      <button v-if="isPhoneFrame" class="dynamic-island" aria-label="AI 큐레이터 열기" @click="openCurator">
+        <i></i><span>Curator AI</span><b></b>
+      </button>
 
       <header class="app-header">
         <div class="header-left">
@@ -57,13 +48,14 @@
       </div>
 
       <main class="place-feed">
-        <div v-if="filteredPlaces.length === 0" class="empty-state">
+        <div v-if="activeTab === 'saved'" class="feed-heading"><strong>♡ 보관함</strong><button @click="activeTab = 'explore'">탐색으로 돌아가기</button></div>
+        <div v-if="visiblePlaces.length === 0" class="empty-state">
           <div>⌖</div><h3>등록된 시크릿 장소가 없어요</h3>
           <p>＋ 버튼을 눌러 {{ currentRegion.name }}의 숨은 첫 번째 장소를 제보해 주세요!</p>
           <button class="primary-button" @click="openRegister">＋ 첫 명소 등록하기</button>
         </div>
 
-        <article v-for="place in filteredPlaces" :key="place.id" class="place-card">
+        <article v-for="place in visiblePlaces" :key="place.id" class="place-card">
           <div class="place-image">
             <img :src="place.image" :alt="place.name" loading="lazy"
                  @error="onImageError">
@@ -90,11 +82,27 @@
       </main>
 
       <nav class="bottom-nav">
-        <button class="nav-active" @click="resetExplore">◎<small>탐색</small></button>
-        <button @click="isSidebarOpen = true">▤<small>전국도시</small></button>
+        <button :class="{ 'nav-active': activeTab === 'explore' }" @click="resetExplore">◎<small>탐색</small></button>
+        <button :class="{ 'nav-active': isSidebarOpen }" @click="isSidebarOpen = true">▤<small>전국도시</small></button>
         <button @click="openRegister">＋<small>등록</small></button>
-        <button @click="showSaved">♡<em v-if="likedPlaceIds.length">{{ likedPlaceIds.length }}</em><small>보관함</small></button>
+        <button :class="{ 'nav-active': activeTab === 'saved' }" @click="showSaved">♡<em v-if="likedPlaceIds.length">{{ likedPlaceIds.length }}</em><small>보관함</small></button>
       </nav>
+
+      <div v-if="isCuratorOpen" class="overlay modal-overlay" @click.self="isCuratorOpen = false">
+        <section class="curator-modal">
+          <header class="modal-heading"><div><strong>✨ AI 큐레이터</strong><small>{{ currentRegion.name }}의 장소를 로컬에서 분석해 추천합니다</small></div><button @click="isCuratorOpen = false">×</button></header>
+          <div class="curator-content">
+            <p class="curator-note">서버 연결 없이 장소의 설명·태그·평점을 바탕으로 추천합니다.</p>
+            <div class="curator-controls"><button v-for="mood in curatorMoods" :key="mood" :class="{ active: curatorMood === mood }" @click="curatorMood = mood">{{ mood }}</button></div>
+            <article v-for="place in curatorRecommendations" :key="place.id" class="curator-result">
+              <img :src="place.image" :alt="place.name" @error="onImageError">
+              <div><strong>{{ place.name }}</strong><p>{{ place.description }}</p><small>★ {{ Number(place.rating || 0).toFixed(1) }} · {{ place.category }}</small></div>
+              <button @click="isCuratorOpen = false; searchQuery = place.name">보기</button>
+            </article>
+            <p v-if="!curatorRecommendations.length" class="curator-note">추천할 장소가 없습니다. 장소를 등록하거나 다른 도시를 선택해 주세요.</p>
+          </div>
+        </section>
+      </div>
 
       <div v-if="isSidebarOpen" class="overlay" @click.self="isSidebarOpen = false">
         <aside class="sidebar">
@@ -237,6 +245,15 @@ export default {
       isSidebarOpen: false,
       isPhoneFrame: true,
       dynamicIslandExpanded: false,
+      activeTab: 'explore',
+      isCuratorOpen: false,
+      curatorMood: '전체 추천',
+      curatorMoods: ['전체 추천', '맛집', '카페/디저트', '힐링/산책', '인생샷'],
+      statusTime: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      batteryLevel: '—%',
+      isCharging: false,
+      statusTimer: null,
+      batteryManager: null,
       isRegisterOpen: false,
       registerTab: 'map',
       newPlace: EMPTY_PLACE(),
@@ -264,6 +281,15 @@ export default {
           .some(value => String(value || '').toLocaleLowerCase('ko-KR').includes(query));
       });
     },
+    visiblePlaces() {
+      const list = this.activeTab === 'saved' ? this.filteredPlaces.filter(place => this.likedPlaceIds.includes(place.id)) : this.filteredPlaces;
+      return list;
+    },
+    curatorRecommendations() {
+      const mood = this.curatorMood;
+      return this.filteredPlaces.filter(place => mood === '전체 추천' || place.category.includes(mood) || (place.tags || []).some(tag => tag.includes(mood)))
+        .sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0)).slice(0, 5);
+    },
     cityCounts() {
       const counts = Object.fromEntries(this.regions.map(region => [region.id, 0]));
       this.places.forEach(place => { if (counts[place.cityId] !== undefined) counts[place.cityId] += 1; });
@@ -276,7 +302,16 @@ export default {
       return this.regions.filter(region => region.category === 'province');
     },
   },
+  mounted() {
+    this.statusTimer = setInterval(() => { this.statusTime = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }); }, 15000);
+    if (navigator.getBattery) navigator.getBattery().then(battery => {
+      this.batteryManager = battery;
+      const update = () => { this.batteryLevel = `${Math.round(battery.level * 100)}%`; this.isCharging = battery.charging; };
+      update(); battery.addEventListener('levelchange', update); battery.addEventListener('chargingchange', update);
+    }).catch(() => {});
+  },
   methods: {
+    openCurator() { this.curatorMood = '전체 추천'; this.isCuratorOpen = true; },
     selectCity(cityId) {
       this.selectedCityId = cityId;
       this.isSidebarOpen = false;
@@ -425,11 +460,13 @@ export default {
       this.showToast('✨ 나만의 시크릿 플레이스가 등록되었습니다!');
     },
     resetExplore() {
+      this.activeTab = 'explore';
       this.searchQuery = '';
-      this.selectedCityId = 'seoul';
     },
     showSaved() {
-      this.showToast(`저장된 명소 총 ${this.likedPlaceIds.length}개`);
+      this.activeTab = 'saved';
+      this.searchQuery = '';
+      if (!this.likedPlaceIds.length) this.showToast('아직 보관한 장소가 없습니다. ♥ 버튼으로 저장해보세요.');
     },
     onImageError(event) {
       event.target.src = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80';
@@ -437,6 +474,7 @@ export default {
   },
   beforeUnmount() {
     if (this.toastTimer) clearTimeout(this.toastTimer);
+    clearInterval(this.statusTimer);
     clearTimeout(this.addressSearchTimer);
     this.destroyMap();
   }
@@ -461,8 +499,12 @@ export default {
 .glow { position: absolute; z-index: -1; border-radius: 50%; filter: blur(85px); pointer-events: none; }
 .glow-a { width: 270px; height: 270px; background: #4f46e5; opacity: .18; top: -100px; left: -100px; }
 .glow-b { width: 300px; height: 300px; background: #9333ea; opacity: .16; bottom: -100px; right: -100px; }
-.status-bar { display: flex; justify-content: space-between; padding: 7px 25px 2px; color: #cbd5e1; font-size: 11px; font-weight: 700; z-index: 2; }
-.dynamic-island { align-self: center; min-width: 126px; height: 31px; padding: 0 13px; margin: 3px auto 8px; border-radius: 30px; background: #020202; border: 1px solid #ffffff18; display: flex; align-items: center; justify-content: space-between; gap: 10px; z-index: 5; cursor: pointer; box-shadow: 0 6px 18px #0007; transition: all .25s; }
+.status-bar { display: flex; justify-content: space-between; align-items: center; padding: 7px 25px 2px; color: #cbd5e1; font-size: 11px; font-weight: 700; z-index: 2; }
+.status-icons { display: flex; align-items: center; gap: 5px; }
+.battery { position: relative; display: inline-flex; align-items: center; min-width: 28px; padding: 2px 5px; border: 1px solid #94a3b8; border-radius: 5px; font-size: 9px; }
+.battery i { position: absolute; right: -3px; width: 2px; height: 5px; background: #94a3b8; }
+.battery i.charging::before { content: '⚡'; position: absolute; right: 3px; top: -3px; color: #fbbf24; }
+.dynamic-island { align-self: center; border: 0; color: inherit; font-family: inherit; min-width: 126px; height: 31px; padding: 0 13px; margin: 3px auto 8px; border-radius: 30px; background: #020202; border: 1px solid #ffffff18; display: flex; align-items: center; justify-content: space-between; gap: 10px; z-index: 5; cursor: pointer; box-shadow: 0 6px 18px #0007; transition: all .25s; }
 .dynamic-island > i { width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981; }
 .dynamic-island > span { font-size: 10px; color: #cbd5e1; font-weight: 700; }
 .dynamic-island > b { width: 9px; height: 9px; border-radius: 50%; background: #6366f1; }
@@ -519,6 +561,21 @@ export default {
 .bottom-nav button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; border: 0; background: transparent; color: #94a3b8; font-size: 19px; cursor: pointer; }
 .bottom-nav button small { font-size: 9px; font-weight: 700; }
 .bottom-nav button.nav-active { color: #a5b4fc; }
+.feed-heading { display:flex; justify-content:space-between; align-items:center; padding:8px 2px 14px; color:#c7d2fe; font-size:13px; }
+.feed-heading button { border:1px solid #475569; border-radius:9px; padding:6px 9px; background:#1e293b; color:#cbd5e1; font-size:10px; }
+.curator-modal { display:flex; flex-direction:column; width:min(520px,100%); max-height:88%; overflow:hidden; border:1px solid #475569; border-radius:24px; background:#0f172a; }
+.curator-content { overflow:auto; padding:16px; }
+.curator-note { color:#94a3b8; font-size:11px; line-height:1.6; }
+.curator-controls { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
+.curator-controls button { border:1px solid #334155; border-radius:18px; padding:7px 11px; background:#1e293b; color:#cbd5e1; font-size:10px; }
+.curator-controls button.active { background:#4f46e5; color:white; }
+.curator-result { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid #334155; }
+.curator-result img { width:64px; height:64px; object-fit:cover; border-radius:12px; }
+.curator-result div { flex:1; min-width:0; }
+.curator-result strong { font-size:12px; }
+.curator-result p { margin:4px 0; color:#94a3b8; font-size:10px; }
+.curator-result small { color:#fbbf24; font-size:9px; }
+.curator-result button { border:0; border-radius:9px; padding:7px 9px; background:#4f46e5; color:white; font-size:10px; }
 .bottom-nav em { position: absolute; top: -4px; right: -9px; display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: #f43f5e; color: white; font-size: 8px; font-style: normal; }
 .overlay { position: absolute; inset: 0; z-index: 10; display: flex; background: #020617c9; backdrop-filter: blur(8px); }
 .sidebar { position: relative; display: flex; flex-direction: column; width: min(300px, 84%); height: 100%; border-right: 1px solid #334155; background: #0f172a; box-shadow: 20px 0 50px #0007; }
