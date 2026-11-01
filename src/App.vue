@@ -38,7 +38,10 @@
             <p>실시간 인기 플레이스 모음집</p>
           </div>
         </div>
-        <button class="add-button" aria-label="장소 등록" @click="openRegister">＋</button>
+        <div class="header-actions">
+          <button class="ai-button" @click="isAiOpen = true">✨ AI 큐레이터</button>
+          <button class="add-button" aria-label="장소 등록" @click="openRegister">＋</button>
+        </div>
       </header>
 
       <div class="region-strip">
@@ -143,16 +146,14 @@
             <div class="location-heading">
               <label>위치 입력 방식 *</label>
               <div class="tabs">
-                <button :class="{ active: registerTab === 'map' }" @click="registerTab = 'map'">⌖ 지도 핀 찍기</button>
+                <button :class="{ active: registerTab === 'map' }" @click="registerTab = 'map'; loadLeaflet()">⌖ 지도 핀 찍기</button>
                 <button :class="{ active: registerTab === 'search' }" @click="registerTab = 'search'">⌕ 주소 검색</button>
               </div>
             </div>
 
-            <div v-if="registerTab === 'map'" class="map-picker" @click="handleMapClick">
-              <div class="map-hint">원하는 위치를 터치하면 핀이 생성됩니다.</div>
-              <div class="map-pin" :style="{ left: mapPin.x + '%', top: mapPin.y + '%' }">
-                <span>{{ mapPin.label }}</span><b>📍</b>
-              </div>
+            <div v-if="registerTab === 'map'" class="map-picker">
+              <div id="real-place-map" class="real-place-map"></div>
+              <div class="map-hint">지도를 누르면 실제 좌표와 주소를 선택합니다.</div>
             </div>
             <div v-else class="address-search">
               <input v-model.trim="addressSearchQuery" placeholder="도로명 주소 또는 건물명 입력">
@@ -183,6 +184,24 @@
         </section>
       </div>
 
+      <div v-if="isAiOpen" class="overlay modal-overlay" @click.self="isAiOpen = false">
+        <section class="register-modal ai-modal">
+          <header class="modal-heading"><div><strong>✨ AI 큐레이터</strong><small>별도 서버 없이 현재 장소 데이터와 브라우저 내 규칙으로 추천</small></div><button @click="isAiOpen = false">×</button></header>
+          <div class="modal-content">
+            <label>어떤 장소를 찾으세요?</label>
+            <input v-model="aiPrompt" placeholder="예: 조용한 데이트 카페, 아이와 갈 곳, 야경 명소">
+            <div class="ai-chips"><button v-for="q in ['데이트','가족 나들이','카페','야경','힐링/산책','맛집']" :key="q" @click="aiPrompt = q">{{ q }}</button></div>
+            <button class="primary-button ai-run" @click="runCurator">추천 받기</button>
+            <div v-if="aiRecommendations.length" class="ai-results">
+              <p class="ai-note">현재 앱에 저장된 장소를 키워드·태그·설명·평점으로 분석한 추천입니다. 외부 실시간 리뷰나 생성형 AI 호출은 하지 않습니다.</p>
+              <article v-for="item in aiRecommendations" :key="item.place.id" class="ai-result">
+                <strong>{{ item.place.name }}</strong><span>매칭 점수 {{ item.score }}점</span><p>{{ item.reason }}</p>
+                <button @click="selectCity(item.place.cityId); isAiOpen = false; searchQuery = item.place.name">장소 보기</button>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
       <div v-if="toastMessage" class="toast">✨ {{ toastMessage }}</div>
     </section>
   </div>
@@ -247,7 +266,7 @@ export default {
       isSidebarOpen: false,
       isPhoneFrame: true,
       dynamicIslandExpanded: false,
-      isRegisterOpen: false,
+      isRegisterOpen: false,\n      isAiOpen: false,\n      aiPrompt: '',\n      aiRecommendations: [],\n      leafletMap: null,\n      leafletMarker: null,
       registerTab: 'map',
       newPlace: EMPTY_PLACE(),
       mapPin: { x: 48, y: 42, label: '서울 용산구 후암동 근처' },
@@ -294,12 +313,60 @@ export default {
       this.selectedCityId = cityId;
       this.isSidebarOpen = false;
     },
+    loadLeaflet() {
+      if (window.L) { this.initLeafletMap(); return; }
+      if (!document.getElementById('leaflet-css')) {
+        const css = document.createElement('link'); css.id = 'leaflet-css'; css.rel = 'stylesheet';
+        css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
+      }
+      const script = document.createElement('script'); script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => this.initLeafletMap(); script.onerror = () => this.showToast('지도를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.');
+      document.head.appendChild(script);
+    },
+    initLeafletMap() {
+      this.$nextTick(() => {
+        const el = document.getElementById('real-place-map');
+        if (!el || !window.L) return;
+        const centers = { seoul:[37.5665,126.978], busan:[35.1796,129.0756], daegu:[35.8714,128.6014], incheon:[37.4563,126.7052], gwangju:[35.1595,126.8526], daejeon:[36.3504,127.3845], ulsan:[35.5384,129.3114], sejong:[36.4800,127.2890], gyeonggi:[37.4138,127.5183], gangwon:[37.8228,128.1555], chungbuk:[36.8,127.7], chungnam:[36.5,126.8], jeonbuk:[35.7,127.1], jeonnam:[34.8,126.9], gyeongbuk:[36.5,128.7], gyeongnam:[35.4,128.2], jeju:[33.4996,126.5312] };
+        const center = centers[this.newPlace.cityId] || centers.seoul;
+        if (this.leafletMap) { this.leafletMap.remove(); this.leafletMap = null; }
+        this.leafletMap = window.L.map(el).setView(center, 12);
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(this.leafletMap);
+        this.leafletMap.on('click', async e => {
+          const { lat, lng } = e.latlng;
+          this.newPlace.coordinates = { lat, lng };
+          if (this.leafletMarker) this.leafletMarker.remove();
+          this.leafletMarker = window.L.marker([lat,lng]).addTo(this.leafletMap);
+          this.newPlace.address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+          try {
+            const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+            if (r.ok) { const data = await r.json(); this.newPlace.address = data.display_name || this.newPlace.address; }
+          } catch (_) {}
+          this.showToast('지도 위치를 선택했습니다.');
+        });
+        setTimeout(() => this.leafletMap && this.leafletMap.invalidateSize(), 150);
+      });
+    },
+    runCurator() {
+      const terms = this.aiPrompt.toLocaleLowerCase('ko-KR').split(/[\s,，]+/).filter(Boolean);
+      const scored = this.places.map(place => {
+        const text = [place.name, place.category, place.description, place.address, ...(place.tags || [])].join(' ').toLocaleLowerCase('ko-KR');
+        let score = Number(place.rating || 0) * 10;
+        const matches = terms.filter(term => text.includes(term));
+        score += matches.length * 18;
+        const synonym = { 데이트:['야경','카페','오션뷰','인생샷'], 가족:['산책','힐링','공원','랜드마크'], 아이:['산책','공원','실내'], 조용한:['힐링','산책','카페'], 야경:['야경','밤','전망'], 카페:['카페','커피','디저트'], 맛집:['맛집','식당','음식'] };
+        terms.forEach(term => (synonym[term] || []).forEach(word => { if (text.includes(word)) score += 8; }));
+        return { place, score: Math.min(100, Math.round(score)), reason: matches.length ? `검색어 ${matches.join(', ')}와 장소 정보가 일치합니다.` : `평점 ${Number(place.rating || 0).toFixed(1)} 및 등록된 설명·태그를 바탕으로 골랐습니다.` };
+      }).sort((a,b) => b.score-a.score).slice(0,5);
+      this.aiRecommendations = scored;
+      if (!terms.length) this.showToast('원하는 장소 유형을 입력해주세요.');
+    },
     openRegister() {
       this.newPlace = { ...EMPTY_PLACE(), cityId: this.selectedCityId };
       this.registerTab = 'map';
       this.addressSearchQuery = '';
       this.mapPin = { x: 48, y: 42, label: `${this.currentRegion.name} 위치 선택` };
-      this.isRegisterOpen = true;
+      this.isRegisterOpen = true;\n      if (this.registerTab === 'map') this.loadLeaflet();
     },
     closeRegister() {
       this.isRegisterOpen = false;
@@ -335,7 +402,7 @@ export default {
       this.mapPin = { x, y, label: address };
       this.newPlace.address = address;
       this.newPlace.coordinates = { x, y };
-      this.showToast('📍 지도 핀 위치가 선택되었습니다. (시뮬레이션)');
+      this.showToast('지도 핀 위치가 선택되었습니다.');
     },
     selectSearchedAddress(item) {
       this.newPlace.cityId = item.cityId;
@@ -517,6 +584,21 @@ export default {
 .cancel-button { width: 34%; border: 0; border-radius: 12px; background: #1e293b; color: #cbd5e1; font-size: 11px; font-weight: 800; cursor: pointer; }
 .modal-actions .save-button { flex: 1; padding: 12px; }
 .toast { position: absolute; bottom: 82px; left: 50%; z-index: 20; max-width: 90%; padding: 10px 15px; transform: translateX(-50%); border: 1px solid #818cf866; border-radius: 30px; background: #1e293bf2; color: white; box-shadow: 0 8px 25px #0008; font-size: 10px; white-space: nowrap; }
+
+.header-actions { display:flex; align-items:center; gap:7px; }
+.ai-button { border:1px solid #818cf855; border-radius:12px; padding:9px 10px; background:#312e81aa; color:#c7d2fe; font-size:10px; font-weight:800; }
+.real-place-map { width:100%; height:100%; min-height:175px; border-radius:14px; z-index:1; }
+.map-picker { background:#0f172a; }
+.map-hint { z-index:500; }
+.ai-modal { max-height:90%; }
+.ai-chips { display:flex; flex-wrap:wrap; gap:6px; margin:9px 0; }
+.ai-chips button, .ai-result button { border:1px solid #475569; border-radius:20px; padding:7px 10px; background:#1e293b; color:#cbd5e1; font-size:10px; }
+.ai-run { width:100%; margin:8px 0; }
+.ai-note { color:#94a3b8; font-size:10px; line-height:1.5; }
+.ai-result { padding:12px 0; border-bottom:1px solid #334155; }
+.ai-result strong { display:block; font-size:12px; }
+.ai-result span { color:#a5b4fc; font-size:10px; }
+.ai-result p { color:#cbd5e1; font-size:10px; }
 @media (max-width: 600px) {
   .curator-app { padding: 0; }
   .viewport-tools { display: none; }
