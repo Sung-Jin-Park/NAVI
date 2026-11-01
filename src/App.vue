@@ -498,7 +498,7 @@ export default {
       if (!('indexedDB' in window)) { this.showToast('이 브라우저는 IndexedDB를 지원하지 않습니다.'); return; }
       try {
         const db = await new Promise((resolve, reject) => {
-          const request = indexedDB.open('CuratorPlacesDB', 1);
+          const request = indexedDB.open('CuratorPlacesDB', 2);
           request.onupgradeneeded = () => {
             const database = request.result;
             if (!database.objectStoreNames.contains('places')) database.createObjectStore('places', { keyPath: 'id' });
@@ -506,6 +506,7 @@ export default {
           request.onsuccess = () => resolve(request.result);
           request.onerror = () => reject(request.error);
         });
+        db.onversionchange = () => db.close();
         this.placesDb = db;
         const storedPlaces = await new Promise((resolve, reject) => {
           const request = db.transaction('places', 'readonly').objectStore('places').getAll();
@@ -521,7 +522,15 @@ export default {
       await new Promise((resolve, reject) => {
         const transaction = this.placesDb.transaction('places', 'readwrite');
         const store = transaction.objectStore('places');
-        this.places.forEach(place => store.put(place));
+        store.clear();
+        this.places.forEach(place => store.put({
+          ...place,
+          coordinates: place.coordinates && place.coordinates.lat != null && place.coordinates.lng != null && Number.isFinite(Number(place.coordinates.lat)) && Number.isFinite(Number(place.coordinates.lng))
+            ? { lat: Number(place.coordinates.lat), lng: Number(place.coordinates.lng) }
+            : { lat: null, lng: null },
+          address: String(place.address || ''),
+          name: String(place.name || '')
+        }));
         transaction.oncomplete = resolve;
         transaction.onerror = () => reject(transaction.error);
         transaction.onabort = () => reject(transaction.error);
@@ -650,9 +659,11 @@ export default {
     },
     openNavigation(place) {
       if (place.kakaoUrl) { window.open(place.kakaoUrl, '_blank', 'noopener'); return; }
-      const encoded = encodeURIComponent(`${place.address} ${place.name}`);
+      const destination = `${place.address || ''} ${place.name || ''}`.trim();
+      const encoded = encodeURIComponent(destination);
+      // Naver Map search URL keeps the saved place/address as the destination query.
       window.open(`https://map.naver.com/v5/search/${encoded}`, '_blank', 'noopener');
-      this.showToast(`${place.name} 길찾기를 연결합니다.`);
+      this.showToast(`${place.name || place.address} 길찾기를 연결합니다.`);
     },
     async loadLeaflet() {
       if (window.L) return window.L;
@@ -687,10 +698,20 @@ export default {
           this.mapMarker.bindPopup('선택한 위치').openPopup();
           this.newPlace.address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
           try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=ko`);
-            if (response.ok) { const data = await response.json(); if (data.display_name) this.newPlace.address = data.display_name; }
-          } catch (_) { /* 좌표 주소 표시로 유지 */ }
-          this.showToast('지도 위치를 선택했습니다.');
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${lat}&lon=${lng}&accept-language=ko`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.display_name) this.newPlace.address = data.display_name;
+              const a = data.address || {};
+              const label = data.name || a.mall || a.amenity || a.shop || a.tourism || a.leisure || a.building || a.commercial || a.retail || a.office;
+              if (label && (!this.newPlace.name.trim() || this.newPlace.name.trim() === '새 장소')) this.newPlace.name = String(label).trim();
+            }
+          } catch (_) { /* 주소 조회 실패 시 좌표 주소를 유지합니다. */ }
+          if (!this.newPlace.name.trim()) {
+            const firstAddressPart = this.newPlace.address.split(',')[0].trim();
+            this.newPlace.name = firstAddressPart && !/^\d+\.\d+/.test(firstAddressPart) ? firstAddressPart : '지도에서 선택한 장소';
+          }
+          this.showToast('위치를 선택했습니다. 장소 이름을 확인한 뒤 저장해주세요.');
         });
         if (this.newPlace.coordinates?.lat) this.setMapMarker(this.newPlace.coordinates.lat, this.newPlace.coordinates.lng);
         setTimeout(() => this.mapInstance?.invalidateSize(), 150);
@@ -777,7 +798,7 @@ export default {
       const lat = Number(item.lat), lng = Number(item.lon);
       this.newPlace.address = item.display_name;
       this.newPlace.coordinates = { lat, lng };
-      if (!this.newPlace.name) this.newPlace.name = item.name || item.display_name.split(',')[0];
+      if (!this.newPlace.name.trim()) this.newPlace.name = item.name || item.display_name.split(',')[0].trim();
       this.searchedAddresses = [];
       this.registerTab = 'map';
       nextTick(() => this.initializeMap().then(() => this.setMapMarker(lat, lng)));
@@ -810,7 +831,13 @@ export default {
         tags
       };
       this.places.unshift(place);
-      this.persistAllPlaces().catch(() => this.showToast('장소는 추가했지만 IndexedDB 저장에 실패했습니다.'));
+      try {
+        await this.persistAllPlaces();
+      } catch (error) {
+        this.places = this.places.filter(item => item.id !== place.id);
+        this.showToast('IndexedDB 저장에 실패했습니다. 브라우저 저장 공간/권한을 확인해주세요.');
+        return;
+      }
       this.selectedCityId = place.cityId;
       this.searchQuery = '';
       this.searchInput = '';
