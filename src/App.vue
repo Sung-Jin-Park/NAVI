@@ -804,7 +804,7 @@ export default {
       nextTick(() => this.initializeMap().then(() => this.setMapMarker(lat, lng)));
       this.showToast('검색한 주소를 지도에 표시했습니다.');
     },
-    savePlace() {
+    async savePlace() {
       if (!this.newPlace.name.trim()) {
         this.showToast('⚠️ 명소 이름을 입력해주세요.');
         return;
