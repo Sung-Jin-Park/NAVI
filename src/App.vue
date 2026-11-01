@@ -153,6 +153,10 @@
               </div>
             </div>
 
+            <div v-if="registerTab === 'map'" class="map-location-search">
+              <input v-model.trim="mapLocationQuery" @keydown.enter.prevent="searchMapLocation" placeholder="지도에서 위치 검색 (예: 울산 동구)">
+              <button :disabled="mapLocationLoading" @click="searchMapLocation">{{ mapLocationLoading ? '검색 중…' : '⌕ 찾기' }}</button>
+            </div>
             <div v-if="registerTab === 'map'" class="map-picker-wrap">
               <div ref="realMap" class="real-map" aria-label="실제 지도"></div>
               <div class="map-hint">지도를 이동·확대하고 원하는 위치를 터치해 핀을 선택하세요.</div>
@@ -441,6 +445,9 @@ export default {
       addressSearchLoading: false,
       mapInstance: null,
       mapMarker: null,
+      mapLocationQuery: '',
+      mapLocationLoading: false,
+      placesDb: null,
       addressSearchTimer: null,
       toastMessage: '',
       toastTimer: null
@@ -481,11 +488,45 @@ export default {
       return this.regions.filter(region => region.category === 'province');
     },
   },
-  mounted() {
+  async mounted() {
     try { this.kakaoAppKey = localStorage.getItem('curator_kakao_js_key') || ''; } catch (_) { this.kakaoAppKey = ''; }
     this.kakaoAppKeyInput = this.kakaoAppKey;
+    await this.initializePlacesDb();
   },
   methods: {
+    async initializePlacesDb() {
+      if (!('indexedDB' in window)) { this.showToast('이 브라우저는 IndexedDB를 지원하지 않습니다.'); return; }
+      try {
+        const db = await new Promise((resolve, reject) => {
+          const request = indexedDB.open('CuratorPlacesDB', 1);
+          request.onupgradeneeded = () => {
+            const database = request.result;
+            if (!database.objectStoreNames.contains('places')) database.createObjectStore('places', { keyPath: 'id' });
+          };
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        this.placesDb = db;
+        const storedPlaces = await new Promise((resolve, reject) => {
+          const request = db.transaction('places', 'readonly').objectStore('places').getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+        });
+        if (storedPlaces.length) this.places = storedPlaces;
+        else await this.persistAllPlaces();
+      } catch (error) { this.showToast('IndexedDB를 열지 못했습니다. 브라우저 저장 설정을 확인해주세요.'); }
+    },
+    async persistAllPlaces() {
+      if (!this.placesDb) return;
+      await new Promise((resolve, reject) => {
+        const transaction = this.placesDb.transaction('places', 'readwrite');
+        const store = transaction.objectStore('places');
+        this.places.forEach(place => store.put(place));
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+      });
+    },
     saveKakaoKey() {
       const key = this.kakaoAppKeyInput.trim();
       if (!key) { this.showToast('카카오 JavaScript 키를 입력해주세요.'); return; }
@@ -655,6 +696,25 @@ export default {
         setTimeout(() => this.mapInstance?.invalidateSize(), 150);
       } catch (error) { this.showToast('지도를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.'); }
     },
+    async searchMapLocation() {
+      const query = this.mapLocationQuery.trim();
+      if (!query) { this.showToast('검색할 지역이나 장소를 입력해주세요.'); return; }
+      this.mapLocationLoading = true;
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&country=kr&accept-language=ko&q=${encodeURIComponent(query)}`;
+        const response = await fetch(url, { headers: { 'Accept-Language': 'ko' } });
+        if (!response.ok) throw new Error('GEOCODE_FAILED');
+        const results = await response.json();
+        if (!results.length) { this.showToast('검색 결과가 없습니다. 다른 검색어를 입력해주세요.'); return; }
+        const result = results[0];
+        const lat = Number(result.lat), lng = Number(result.lon);
+        this.newPlace.coordinates = { lat, lng };
+        this.newPlace.address = result.display_name || query;
+        this.setMapMarker(lat, lng);
+        this.showToast(`${result.display_name || query} 위치로 이동했습니다.`);
+      } catch (error) { this.showToast('지도 위치 검색에 실패했습니다. 잠시 후 다시 시도해주세요.'); }
+      finally { this.mapLocationLoading = false; }
+    },
     setMapMarker(lat, lng) {
       if (!this.mapInstance || !window.L) return;
       const point = [Number(lat), Number(lng)];
@@ -717,6 +777,7 @@ export default {
         tags
       };
       this.places.unshift(place);
+      this.persistAllPlaces().catch(() => this.showToast('장소는 추가했지만 IndexedDB 저장에 실패했습니다.'));
       this.selectedCityId = place.cityId;
       this.searchQuery = '';
       this.searchInput = '';
@@ -867,6 +928,10 @@ export default {
 .tabs { display: flex; gap: 3px; padding: 3px; border: 1px solid #334155; border-radius: 11px; background: #1e293b; }
 .tabs button { border: 0; border-radius: 8px; padding: 7px 9px; background: transparent; color: #94a3b8; font-size: 9px; cursor: pointer; }
 .tabs button.active { background: #4f46e5; color: white; font-weight: 800; }
+.map-location-search { display: flex; gap: 8px; margin: 10px 0; }
+.map-location-search input { flex: 1; min-width: 0; border: 1px solid #475569; border-radius: 10px; padding: 10px; background: #0f172a; color: #f8fafc; font-size: 12px; }
+.map-location-search button { border: 0; border-radius: 10px; padding: 0 13px; background: #4f46e5; color: white; font-weight: 800; cursor: pointer; }
+.map-location-search button:disabled { opacity: .6; }
 .map-picker-wrap { position: relative; height: 300px; overflow: hidden; border: 1px solid #475569; border-radius: 15px; background: #111827; }
 .real-map { width: 100%; height: 100%; z-index: 1; }
 .map-hint { position: absolute; z-index: 500; top: 9px; left: 9px; padding: 6px 8px; border: 1px solid #475569; border-radius: 8px; background: #0f172add; color: #cbd5e1; font-size: 9px; pointer-events: none; }
