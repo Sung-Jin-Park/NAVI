@@ -518,22 +518,32 @@ export default {
       } catch (error) { this.showToast('IndexedDB를 열지 못했습니다. 브라우저 저장 설정을 확인해주세요.'); }
     },
     async persistAllPlaces() {
-      if (!this.placesDb) return;
+      if (!this.placesDb) throw new Error('IndexedDB가 초기화되지 않았습니다.');
+      // Vue 반응형 Proxy는 일부 브라우저에서 structured clone이 실패할 수 있으므로
+      // 저장 전 순수 JSON 데이터로 변환합니다.
+      const records = JSON.parse(JSON.stringify(this.places)).map(place => ({
+        ...place,
+        id: place.id,
+        coordinates: place.coordinates && Number.isFinite(Number(place.coordinates.lat)) && Number.isFinite(Number(place.coordinates.lng))
+          ? { lat: Number(place.coordinates.lat), lng: Number(place.coordinates.lng) }
+          : { lat: null, lng: null },
+        address: String(place.address || ''),
+        name: String(place.name || ''),
+        tags: Array.isArray(place.tags) ? place.tags.map(String) : []
+      }));
       await new Promise((resolve, reject) => {
-        const transaction = this.placesDb.transaction('places', 'readwrite');
-        const store = transaction.objectStore('places');
-        store.clear();
-        this.places.forEach(place => store.put({
-          ...place,
-          coordinates: place.coordinates && place.coordinates.lat != null && place.coordinates.lng != null && Number.isFinite(Number(place.coordinates.lat)) && Number.isFinite(Number(place.coordinates.lng))
-            ? { lat: Number(place.coordinates.lat), lng: Number(place.coordinates.lng) }
-            : { lat: null, lng: null },
-          address: String(place.address || ''),
-          name: String(place.name || '')
-        }));
-        transaction.oncomplete = resolve;
-        transaction.onerror = () => reject(transaction.error);
-        transaction.onabort = () => reject(transaction.error);
+        let transaction;
+        try {
+          transaction = this.placesDb.transaction(['places'], 'readwrite');
+          const store = transaction.objectStore('places');
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error || new Error('IndexedDB transaction error'));
+          transaction.onabort = () => reject(transaction.error || new Error('IndexedDB transaction aborted'));
+          store.clear();
+          records.forEach(record => store.put(record));
+        } catch (error) {
+          reject(error);
+        }
       });
     },
     saveKakaoKey() {
@@ -835,7 +845,9 @@ export default {
         await this.persistAllPlaces();
       } catch (error) {
         this.places = this.places.filter(item => item.id !== place.id);
-        this.showToast('IndexedDB 저장에 실패했습니다. 브라우저 저장 공간/권한을 확인해주세요.');
+        console.error('IndexedDB 저장 실패:', error);
+        const reason = error && (error.name || error.message) ? `${error.name || 'Error'}: ${error.message || ''}` : '';
+        this.showToast(`IndexedDB 저장 실패${reason ? ` (${reason})` : ''}. 브라우저 저장 설정을 확인해주세요.`);
         return;
       }
       this.selectedCityId = place.cityId;
