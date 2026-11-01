@@ -32,10 +32,17 @@
           <option v-for="region in regions" :key="region.id" :value="region.id">{{ region.name }}</option>
         </select>
         <input v-model="searchInput" @keydown.enter="runSearch" :placeholder="`${selectedCityId === 'all' ? '전국' : currentRegion.shortName} 맛집, 카페, 명소 검색...`">
-        <button class="search-submit" aria-label="검색" @click="runSearch">⌕</button>
-        <button v-if="searchInput || searchQuery" aria-label="검색 초기화" @click="clearSearch">×</button>
+        <button class="search-submit" aria-label="검색" :disabled="liveSearchLoading" @click="runSearch">{{ liveSearchLoading ? '…' : '⌕' }}</button>
+        <button class="api-key-toggle" aria-label="실시간 검색 API 설정" @click="showApiKeyInput = !showApiKeyInput">⚙</button>
+        <button v-if="searchInput || searchQuery || livePlaces.length" aria-label="검색 초기화" @click="clearSearch">×</button>
+      </div>
+      <div v-if="showApiKeyInput" class="api-key-panel">
+        <input v-model.trim="kakaoAppKeyInput" type="password" placeholder="카카오 JavaScript 키 입력">
+        <button @click="saveKakaoKey">키 저장</button>
+        <small>카카오 개발자 콘솔에서 JavaScript 키를 발급하고 현재 사이트 도메인을 등록하세요.</small>
       </div>
 
+      <div v-if="liveSearchMessage" class="live-search-message">{{ liveSearchMessage }}</div>
       <main class="place-feed">
         <div v-if="activeTab === 'saved'" class="feed-heading"><strong>♡ 보관함</strong><button @click="activeTab = 'explore'">탐색으로 돌아가기</button></div>
         <div v-if="visiblePlaces.length === 0" class="empty-state">
@@ -405,6 +412,12 @@ export default {
       selectedCityId: 'all',
       searchInput: '',
       searchQuery: '',
+      livePlaces: [],
+      liveSearchLoading: false,
+      liveSearchMessage: '',
+      kakaoAppKey: '',
+      kakaoAppKeyInput: '',
+      showApiKeyInput: false,
       likedPlaceIds: [1, 3],
       isSidebarOpen: false,
       isPhoneFrame: true,
@@ -447,7 +460,8 @@ export default {
       });
     },
     visiblePlaces() {
-      const list = this.activeTab === 'saved' ? this.filteredPlaces.filter(place => this.likedPlaceIds.includes(place.id)) : this.filteredPlaces;
+      const source = this.livePlaces.length ? this.livePlaces : this.filteredPlaces;
+      const list = this.activeTab === 'saved' ? source.filter(place => this.likedPlaceIds.includes(place.id)) : source;
       return list;
     },
     curatorRecommendations() {
@@ -467,10 +481,96 @@ export default {
       return this.regions.filter(region => region.category === 'province');
     },
   },
+  mounted() {
+    try { this.kakaoAppKey = localStorage.getItem('curator_kakao_js_key') || ''; } catch (_) {}
+    this.kakaoAppKeyInput = this.kakaoAppKey;
+  },
   methods: {
-    openCurator() { this.curatorMood = '전체 추천'; this.curatorRegionId = this.selectedCityId; this.isCuratorOpen = true; },
+    saveKakaoKey() {
+      const key = this.kakaoAppKeyInput.trim();
+      if (!key) { this.showToast('카카오 JavaScript 키를 입력해주세요.'); return; }
+      this.kakaoAppKey = key;
+      try { localStorage.setItem('curator_kakao_js_key', key); } catch (_) {}
+      this.showApiKeyInput = false;
+      this.showToast('실시간 검색 키를 저장했습니다.');
+    },
+    async loadKakaoPlacesSdk() {
+      if (window.kakao && window.kakao.maps && window.kakao.maps.services) return window.kakao;
+      if (!this.kakaoAppKey) throw new Error('KAKAO_KEY_MISSING');
+      await new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[data-kakao-places-sdk]');
+        if (existing) {
+          if (window.kakao && window.kakao.maps && window.kakao.maps.services) { resolve(); return; }
+          existing.addEventListener('load', resolve, { once: true });
+          existing.addEventListener('error', reject, { once: true });
+          return;
+        }
+        const script = document.createElement('script');
+        script.dataset.kakaoPlacesSdk = '1';
+        script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(this.kakaoAppKey)}&libraries=services`;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+      if (!window.kakao || !window.kakao.maps) throw new Error('KAKAO_SDK_LOAD_FAILED');
+      await new Promise(resolve => window.kakao.maps.load(resolve));
+      if (!window.kakao.maps.services) throw new Error('KAKAO_SERVICES_UNAVAILABLE');
+      return window.kakao;
+    },
+    async runSearch() {
+      const query = this.searchInput.trim();
+      this.searchQuery = query;
+      this.activeTab = 'explore';
+      this.livePlaces = [];
+      this.liveSearchMessage = '';
+      if (!query) { this.showToast('검색어를 입력해주세요.'); return; }
+      if (!this.kakaoAppKey) {
+        this.showApiKeyInput = true;
+        this.liveSearchMessage = '실시간 장소 검색을 사용하려면 ⚙에서 카카오 JavaScript 키를 설정하세요.';
+        return;
+      }
+      this.liveSearchLoading = true;
+      try {
+        const kakao = await this.loadKakaoPlacesSdk();
+        const places = new kakao.maps.services.Places();
+        const regionName = this.selectedCityId === 'all' ? '' : (this.regions.find(r => r.id === this.selectedCityId)?.name || '');
+        const keyword = `${regionName} ${query}`.trim();
+        const result = await new Promise((resolve, reject) => {
+          places.keywordSearch(keyword, (data, status, pagination) => {
+            if (status === kakao.maps.services.Status.OK) resolve(data || []);
+            else if (status === kakao.maps.services.Status.ZERO_RESULT) resolve([]);
+            else reject(new Error(`KAKAO_SEARCH_${status}`));
+          }, { size: 15 });
+        });
+        this.livePlaces = result.map((item, index) => {
+          const matchedRegion = this.selectedCityId !== 'all'
+            ? this.selectedCityId
+            : (this.regions.find(region => item.address_name?.includes(region.shortName) || item.road_address_name?.includes(region.shortName))?.id || 'seoul');
+          return {
+            id: `kakao-${item.id || index}`,
+            cityId: matchedRegion,
+            name: item.place_name || '이름 없는 장소',
+            category: (item.category_name || '').split(' > ').slice(-1)[0] || '장소',
+            rating: 0,
+            address: item.road_address_name || item.address_name || '',
+            detailAddress: '',
+            description: item.category_name || '카카오 로컬에서 실시간으로 검색한 장소입니다.',
+            image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+            likes: 0,
+            tags: [item.category_group_name || '실시간 검색', '카카오 로컬'],
+            coordinates: { lat: Number(item.y), lng: Number(item.x) },
+            kakaoUrl: item.place_url
+          };
+        });
+        this.liveSearchMessage = this.livePlaces.length ? `실시간 검색 결과 ${this.livePlaces.length}곳` : '검색 결과가 없습니다. 다른 검색어를 입력해보세요.';
+      } catch (error) {
+        this.liveSearchMessage = error.message === 'KAKAO_KEY_MISSING'
+          ? '카카오 JavaScript 키를 먼저 설정하세요.'
+          : '실시간 검색에 실패했습니다. 키와 등록 도메인, 인터넷 연결을 확인하세요.';
+      } finally { this.liveSearchLoading = false; }
+    }, { this.curatorMood = '전체 추천'; this.curatorRegionId = this.selectedCityId; this.isCuratorOpen = true; },
     runSearch() { this.searchQuery = this.searchInput.trim(); this.activeTab = 'explore'; },
-    clearSearch() { this.searchInput = ''; this.searchQuery = ''; },
+    clearSearch() { this.searchInput = ''; this.searchQuery = ''; this.livePlaces = []; this.liveSearchMessage = ''; },
     selectCity(cityId) {
       this.selectedCityId = cityId;
       this.isSidebarOpen = false;
@@ -504,6 +604,7 @@ export default {
       }
     },
     openNavigation(place) {
+      if (place.kakaoUrl) { window.open(place.kakaoUrl, '_blank', 'noopener'); return; }
       const encoded = encodeURIComponent(`${place.address} ${place.name}`);
       window.open(`https://map.naver.com/v5/search/${encoded}`, '_blank', 'noopener');
       this.showToast(`${place.name} 길찾기를 연결합니다.`);
@@ -790,4 +891,11 @@ export default {
   .modal-overlay { align-items: flex-end; padding: 0; }
   .register-modal { max-height: 92dvh; border-radius: 25px 25px 0 0; }
 }
+
+.api-key-toggle { flex: 0 0 auto; }
+.api-key-panel { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 16px; border-bottom:1px solid rgba(255,255,255,.08); }
+.api-key-panel input { flex:1; min-width:160px; }
+.api-key-panel small { flex-basis:100%; opacity:.7; font-size:11px; }
+.live-search-message { padding:8px 16px; font-size:12px; opacity:.8; }
+.search-submit:disabled { opacity:.55; }
 </style>
