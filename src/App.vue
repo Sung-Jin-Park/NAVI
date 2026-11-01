@@ -568,8 +568,12 @@ export default {
           ? '카카오 JavaScript 키를 먼저 설정하세요.'
           : '실시간 검색에 실패했습니다. 키와 등록 도메인, 인터넷 연결을 확인하세요.';
       } finally { this.liveSearchLoading = false; }
-    }, { this.curatorMood = '전체 추천'; this.curatorRegionId = this.selectedCityId; this.isCuratorOpen = true; },
-    runSearch() { this.searchQuery = this.searchInput.trim(); this.activeTab = 'explore'; },
+    },
+    openCurator() {
+      this.curatorMood = '전체 추천';
+      this.curatorRegionId = this.selectedCityId === 'all' ? 'seoul' : this.selectedCityId;
+      this.isCuratorOpen = true;
+    },
     clearSearch() { this.searchInput = ''; this.searchQuery = ''; this.livePlaces = []; this.liveSearchMessage = ''; },
     selectCity(cityId) {
       this.selectedCityId = cityId;
