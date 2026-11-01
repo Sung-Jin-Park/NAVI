@@ -219,17 +219,6 @@ const INITIAL_PLACES = [
   { id: 6, cityId: 'gangwon', name: '강릉 안목해변 커피거리', category: '카페/바다', rating: 4.6, address: '강원특별자치도 강릉시 창해로 14', detailAddress: '카페거리 중앙 광장', description: '동해 바다 풍경을 바라보며 명품 스페셜티 커피와 디저트를 즐길 수 있는 카페 거리.', image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=800&q=80', likes: 1420, coordinates: { x: 75, y: 25 }, tags: ['커피', '동해바다', '드라이브'] }
 ];
 
-const ADDRESS_MOCK_DB = [
-  { zonecode: '07345', roadAddress: '서울 영등포구 여의대로 108', jibunAddress: '서울 영등포구 여의도동 22', buildingName: '더현대 서울', cityId: 'seoul' },
-  { zonecode: '04340', roadAddress: '서울 용산구 남산공원길 105', jibunAddress: '서울 용산구 용산동2가 산1-3', buildingName: 'YTN 서울타워', cityId: 'seoul' },
-  { zonecode: '48303', roadAddress: '부산 수영구 광안해변로 219', jibunAddress: '부산 수영구 민락동 178-13', buildingName: '광안리 해수욕장 상가', cityId: 'busan' },
-  { zonecode: '63535', roadAddress: '제주특별자치도 서귀포시 안덕면 사계남로 216', jibunAddress: '제주 서귀포시 안덕면 사계리 2294', buildingName: '사계해안 뷰 포인트', cityId: 'jeju' },
-  { zonecode: '38170', roadAddress: '경상북도 경주시 원화로 102', jibunAddress: '경북 경주시 인왕동 26-1', buildingName: '동궁과 월지 안압지', cityId: 'gyeongbuk' },
-  { zonecode: '25567', roadAddress: '강원특별자치도 강릉시 창해로 14', jibunAddress: '강원 강릉시 견소동 286-4', buildingName: '안목커피거리 타워', cityId: 'gangwon' },
-  { zonecode: '41940', roadAddress: '대구 중구 달구벌대로 2077', jibunAddress: '대구 중구 계산동2가 200', buildingName: '더현대 대구', cityId: 'daegu' },
-  { zonecode: '21999', roadAddress: '인천 중구 공항로 272', jibunAddress: '인천 중구 운서동 2840', buildingName: '인천국제공항 제1여객터미널', cityId: 'incheon' }
-];
-
 const EMPTY_PLACE = () => ({
   cityId: 'seoul', name: '', category: '핫플레이스', address: '',
   detailAddress: '', description: '', tags: '', image: '',
