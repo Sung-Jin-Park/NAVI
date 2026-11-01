@@ -3,23 +3,8 @@
     <div class="ambient ambient-one"></div>
     <div class="ambient ambient-two"></div>
 
-    <div class="viewport-tools">
-      <span>뷰포트 모드</span>
-      <button :class="{ active: isPhoneFrame }" @click="isPhoneFrame = true">📱 iPhone 17 Pro Max</button>
-      <button :class="{ active: !isPhoneFrame }" @click="isPhoneFrame = false">▣ 전체 화면</button>
-    </div>
-
-    <section class="device-frame" :class="{ 'phone-frame': isPhoneFrame, 'wide-frame': !isPhoneFrame }">
+    <section class="device-frame wide-frame">
       <div class="glow glow-a"></div><div class="glow glow-b"></div>
-
-      <div v-if="isPhoneFrame" class="status-bar">
-        <span>{{ statusTime }}</span>
-        <span class="status-icons"><span>●</span><span>◖))</span><span class="battery">{{ batteryLevel }}<i :class="{ charging: isCharging }"></i></span></span>
-      </div>
-
-      <button v-if="isPhoneFrame" class="dynamic-island" aria-label="AI 큐레이터 열기" @click="openCurator">
-        <i></i><span>Curator AI</span><b></b>
-      </button>
 
       <header class="app-header">
         <div class="header-left">
@@ -29,7 +14,7 @@
             <p>실시간 인기 플레이스 모음집</p>
           </div>
         </div>
-        <button class="add-button" aria-label="장소 등록" @click="openRegister">＋</button>
+        <div class="header-actions"><button class="ai-button" @click="openCurator">✨ AI 추천</button><button class="add-button" aria-label="장소 등록" @click="openRegister">＋</button></div>
       </header>
 
       <div class="region-strip">
@@ -92,6 +77,7 @@
         <section class="curator-modal">
           <header class="modal-heading"><div><strong>✨ AI 큐레이터</strong><small>{{ currentRegion.name }}의 장소를 로컬에서 분석해 추천합니다</small></div><button @click="isCuratorOpen = false">×</button></header>
           <div class="curator-content">
+            <label class="curator-region-label">추천 지역</label><select class="curator-region-select" v-model="curatorRegionId"><option v-for="region in regions" :key="region.id" :value="region.id">{{ region.name }}</option></select>
             <p class="curator-note">서버 연결 없이 장소의 설명·태그·평점을 바탕으로 추천합니다.</p>
             <div class="curator-controls"><button v-for="mood in curatorMoods" :key="mood" :class="{ active: curatorMood === mood }" @click="curatorMood = mood">{{ mood }}</button></div>
             <article v-for="place in curatorRecommendations" :key="place.id" class="curator-result">
@@ -248,6 +234,7 @@ export default {
       activeTab: 'explore',
       isCuratorOpen: false,
       curatorMood: '전체 추천',
+      curatorRegionId: 'seoul',
       curatorMoods: ['전체 추천', '맛집', '카페/디저트', '힐링/산책', '인생샷'],
       statusTime: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }),
       batteryLevel: '—%',
@@ -287,7 +274,7 @@ export default {
     },
     curatorRecommendations() {
       const mood = this.curatorMood;
-      return this.filteredPlaces.filter(place => mood === '전체 추천' || place.category.includes(mood) || (place.tags || []).some(tag => tag.includes(mood)))
+      return this.places.filter(place => String(place.cityId) === String(this.curatorRegionId) && (mood === '전체 추천' || place.category.includes(mood) || (place.tags || []).some(tag => tag.includes(mood))))
         .sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0)).slice(0, 5);
     },
     cityCounts() {
@@ -302,16 +289,8 @@ export default {
       return this.regions.filter(region => region.category === 'province');
     },
   },
-  mounted() {
-    this.statusTimer = setInterval(() => { this.statusTime = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }); }, 15000);
-    if (navigator.getBattery) navigator.getBattery().then(battery => {
-      this.batteryManager = battery;
-      const update = () => { this.batteryLevel = `${Math.round(battery.level * 100)}%`; this.isCharging = battery.charging; };
-      update(); battery.addEventListener('levelchange', update); battery.addEventListener('chargingchange', update);
-    }).catch(() => {});
-  },
   methods: {
-    openCurator() { this.curatorMood = '전체 추천'; this.isCuratorOpen = true; },
+    openCurator() { this.curatorMood = '전체 추천'; this.curatorRegionId = this.selectedCityId; this.isCuratorOpen = true; },
     selectCity(cityId) {
       this.selectedCityId = cityId;
       this.isSidebarOpen = false;
@@ -491,20 +470,12 @@ export default {
 .ambient { position: fixed; width: 360px; height: 360px; border-radius: 50%; filter: blur(110px); opacity: .16; pointer-events: none; }
 .ambient-one { background: #6366f1; top: -130px; left: -100px; }
 .ambient-two { background: #9333ea; right: -120px; bottom: -130px; }
-.viewport-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding: 7px 12px; border: 1px solid #1e293b; border-radius: 30px; background: #0f172acc; color: #94a3b8; font-size: 11px; z-index: 2; }
-.viewport-tools button { border: 0; border-radius: 20px; padding: 6px 10px; color: #94a3b8; background: transparent; cursor: pointer; font-size: 11px; }
-.viewport-tools button.active { color: white; background: #4f46e5; }
-.device-frame { width: 100%; max-width: 1050px; height: min(900px, calc(100vh - 70px)); min-height: 650px; position: relative; display: flex; flex-direction: column; overflow: hidden; background: #0f172a; border: 1px solid #334155; border-radius: 30px; box-shadow: 0 25px 80px #0009; isolation: isolate; }
-.phone-frame { max-width: 430px; height: min(915px, calc(100vh - 24px)); min-height: 680px; border: 9px solid #1e293b; border-radius: 48px; }
+.device-frame { width: 100%; max-width: 1050px; height: 100dvh; min-height: 560px; position: relative; display: flex; flex-direction: column; overflow: hidden; background: #0f172a; border: 1px solid #334155; border-radius: 30px; box-shadow: 0 25px 80px #0009; isolation: isolate; }
+
 .glow { position: absolute; z-index: -1; border-radius: 50%; filter: blur(85px); pointer-events: none; }
 .glow-a { width: 270px; height: 270px; background: #4f46e5; opacity: .18; top: -100px; left: -100px; }
 .glow-b { width: 300px; height: 300px; background: #9333ea; opacity: .16; bottom: -100px; right: -100px; }
-.status-bar { display: flex; justify-content: space-between; align-items: center; padding: 7px 25px 2px; color: #cbd5e1; font-size: 11px; font-weight: 700; z-index: 2; }
-.status-icons { display: flex; align-items: center; gap: 5px; }
-.battery { position: relative; display: inline-flex; align-items: center; min-width: 28px; padding: 2px 5px; border: 1px solid #94a3b8; border-radius: 5px; font-size: 9px; }
-.battery i { position: absolute; right: -3px; width: 2px; height: 5px; background: #94a3b8; }
-.battery i.charging::before { content: '⚡'; position: absolute; right: 3px; top: -3px; color: #fbbf24; }
-.dynamic-island { align-self: center; border: 0; color: inherit; font-family: inherit; min-width: 126px; height: 31px; padding: 0 13px; margin: 3px auto 8px; border-radius: 30px; background: #020202; border: 1px solid #ffffff18; display: flex; align-items: center; justify-content: space-between; gap: 10px; z-index: 5; cursor: pointer; box-shadow: 0 6px 18px #0007; transition: all .25s; }
+.dynamic-island { display:none; align-self: center; border: 0; color: inherit; font-family: inherit; min-width: 126px; height: 31px; padding: 0 13px; margin: 3px auto 8px; border-radius: 30px; background: #020202; border: 1px solid #ffffff18; display: flex; align-items: center; justify-content: space-between; gap: 10px; z-index: 5; cursor: pointer; box-shadow: 0 6px 18px #0007; transition: all .25s; }
 .dynamic-island > i { width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981; }
 .dynamic-island > span { font-size: 10px; color: #cbd5e1; font-weight: 700; }
 .dynamic-island > b { width: 9px; height: 9px; border-radius: 50%; background: #6366f1; }
@@ -515,6 +486,8 @@ export default {
 .island-detail strong { font-size: 11px; }
 .island-detail small { font-size: 9px; color: #a5b4fc; }
 .island-detail button { border: 0; border-radius: 10px; padding: 7px 10px; background: #4f46e5; color: white; font-weight: 800; font-size: 10px; }
+.header-actions { display:flex; align-items:center; gap:8px; }
+.ai-button { border:1px solid #818cf855; border-radius:13px; padding:10px 12px; background:linear-gradient(110deg,#4f46e5,#9333ea); color:white; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; }
 .app-header { padding: 13px 18px 12px; display: flex; justify-content: space-between; align-items: center; z-index: 2; }
 .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .icon-button, .add-button { width: 39px; height: 39px; flex: 0 0 auto; border: 1px solid #334155; border-radius: 14px; background: #1e293bcc; color: #e2e8f0; font-size: 19px; cursor: pointer; }
@@ -564,6 +537,8 @@ export default {
 .feed-heading { display:flex; justify-content:space-between; align-items:center; padding:8px 2px 14px; color:#c7d2fe; font-size:13px; }
 .feed-heading button { border:1px solid #475569; border-radius:9px; padding:6px 9px; background:#1e293b; color:#cbd5e1; font-size:10px; }
 .curator-modal { display:flex; flex-direction:column; width:min(520px,100%); max-height:88%; overflow:hidden; border:1px solid #475569; border-radius:24px; background:#0f172a; }
+.curator-region-label { display:block; color:#94a3b8; font-size:11px; font-weight:800; margin-bottom:6px; }
+.curator-region-select { width:100%; margin-bottom:12px; padding:10px; border:1px solid #334155; border-radius:12px; background:#1e293b; color:#f8fafc; }
 .curator-content { overflow:auto; padding:16px; }
 .curator-note { color:#94a3b8; font-size:11px; line-height:1.6; }
 .curator-controls { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
@@ -627,8 +602,7 @@ export default {
 .toast { position: absolute; bottom: 82px; left: 50%; z-index: 20; max-width: 90%; padding: 10px 15px; transform: translateX(-50%); border: 1px solid #818cf866; border-radius: 30px; background: #1e293bf2; color: white; box-shadow: 0 8px 25px #0008; font-size: 10px; white-space: nowrap; }
 @media (max-width: 600px) {
   .curator-app { padding: 0; }
-  .viewport-tools { display: none; }
-  .device-frame, .phone-frame, .wide-frame { width: 100%; max-width: none; height: 100dvh; min-height: 560px; border: 0; border-radius: 0; }
+  .device-frame, .wide-frame { width: 100%; max-width: none; height: 100dvh; min-height: 560px; border: 0; border-radius: 0; }
   .place-image { height: 180px; }
   .modal-overlay { align-items: flex-end; padding: 0; }
   .register-modal { max-height: 92dvh; border-radius: 25px 25px 0 0; }
