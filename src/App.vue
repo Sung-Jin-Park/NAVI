@@ -26,10 +26,14 @@
         </button>
       </div>
 
-      <div class="search-area">
-        <span>⌕</span>
-        <input v-model.trim="searchQuery" :placeholder="`${currentRegion.shortName}의 맛집, 카페, 힐링 스팟 검색...`">
-        <button v-if="searchQuery" @click="searchQuery = ''">×</button>
+      <div class="search-area search-area-advanced">
+        <select class="top-region-select" v-model="selectedCityId" aria-label="지역 선택">
+          <option value="all">전체</option>
+          <option v-for="region in regions" :key="region.id" :value="region.id">{{ region.name }}</option>
+        </select>
+        <input v-model="searchInput" @keydown.enter="runSearch" :placeholder="`${selectedCityId === 'all' ? '전국' : currentRegion.shortName} 맛집, 카페, 명소 검색...`">
+        <button class="search-submit" aria-label="검색" @click="runSearch">⌕</button>
+        <button v-if="searchInput || searchQuery" aria-label="검색 초기화" @click="clearSearch">×</button>
       </div>
 
       <main class="place-feed">
@@ -398,7 +402,8 @@ export default {
     return {
       regions: KOREA_REGIONS,
       places: [...INITIAL_PLACES, ...CURATED_PLACES].map(place => ({ ...place })),
-      selectedCityId: 'seoul',
+      selectedCityId: 'all',
+      searchInput: '',
       searchQuery: '',
       likedPlaceIds: [1, 3],
       isSidebarOpen: false,
@@ -430,12 +435,12 @@ export default {
   },
   computed: {
     currentRegion() {
-      return this.regions.find(region => region.id === this.selectedCityId) || this.regions[0];
+      return this.regions.find(region => region.id === this.selectedCityId) || { id: 'all', name: '전체 지역', shortName: '전국', icon: '🇰🇷' };
     },
     filteredPlaces() {
       const query = this.searchQuery.toLocaleLowerCase('ko-KR').trim();
       return this.places.filter(place => {
-        if (String(place.cityId) !== String(this.selectedCityId)) return false;
+        if (this.selectedCityId !== 'all' && String(place.cityId) !== String(this.selectedCityId)) return false;
         if (!query) return true;
         return [place.name, place.description, place.category, place.address, ...(place.tags || [])]
           .some(value => String(value || '').toLocaleLowerCase('ko-KR').includes(query));
@@ -447,7 +452,7 @@ export default {
     },
     curatorRecommendations() {
       const mood = this.curatorMood;
-      return this.places.filter(place => String(place.cityId) === String(this.curatorRegionId) && (mood === '전체 추천' || place.category.includes(mood) || (place.tags || []).some(tag => tag.includes(mood))))
+      return this.places.filter(place => (this.curatorRegionId === 'all' || String(place.cityId) === String(this.curatorRegionId)) && (mood === '전체 추천' || place.category.includes(mood) || (place.tags || []).some(tag => tag.includes(mood))))
         .sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0)).slice(0, 5);
     },
     cityCounts() {
@@ -464,12 +469,14 @@ export default {
   },
   methods: {
     openCurator() { this.curatorMood = '전체 추천'; this.curatorRegionId = this.selectedCityId; this.isCuratorOpen = true; },
+    runSearch() { this.searchQuery = this.searchInput.trim(); this.activeTab = 'explore'; },
+    clearSearch() { this.searchInput = ''; this.searchQuery = ''; },
     selectCity(cityId) {
       this.selectedCityId = cityId;
       this.isSidebarOpen = false;
     },
     openRegister() {
-      this.newPlace = { ...EMPTY_PLACE(), cityId: this.selectedCityId };
+      this.newPlace = { ...EMPTY_PLACE(), cityId: this.selectedCityId === 'all' ? this.regions[0].id : this.selectedCityId };
       this.registerTab = 'map';
       this.addressSearchQuery = '';
       this.mapPin = { x: 48, y: 42, label: `${this.currentRegion.name} 위치 선택` };
@@ -607,6 +614,7 @@ export default {
       this.places.unshift(place);
       this.selectedCityId = place.cityId;
       this.searchQuery = '';
+      this.searchInput = '';
       this.isRegisterOpen = false;
       this.newPlace = EMPTY_PLACE();
       this.showToast('✨ 나만의 시크릿 플레이스가 등록되었습니다!');
@@ -614,10 +622,12 @@ export default {
     resetExplore() {
       this.activeTab = 'explore';
       this.searchQuery = '';
+      this.searchInput = '';
     },
     showSaved() {
       this.activeTab = 'saved';
       this.searchQuery = '';
+      this.searchInput = '';
       if (!this.likedPlaceIds.length) this.showToast('아직 보관한 장소가 없습니다. ♥ 버튼으로 저장해보세요.');
     },
     onImageError(event) {
