@@ -702,17 +702,20 @@ export default {
       }
     },
     openNavigation(place) {
-      if (place.kakaoUrl) { window.open(place.kakaoUrl, '_blank', 'noopener'); return; }
-      const lat = Number(place.coordinates?.lat), lng = Number(place.coordinates?.lng);
-      const name = String(place.name || place.address || '목적지').trim();
-      if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001) {
-        const kakaoRoute = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
-        window.open(kakaoRoute, '_blank', 'noopener');
-      } else {
-        const destination = `${place.address || ''} ${name}`.trim();
-        window.open(`https://map.naver.com/p/search/${encodeURIComponent(destination)}`, '_blank', 'noopener');
+      const name = String(place.name || '').trim();
+      const address = String(place.address || '').trim();
+      const destination = [name, address].filter(Boolean).join(' ')
+        || (Number.isFinite(Number(place.coordinates?.lat)) && Number.isFinite(Number(place.coordinates?.lng))
+          ? `${place.coordinates.lat},${place.coordinates.lng}` : '');
+      if (!destination) {
+        this.showToast('장소 이름이나 주소를 먼저 등록해주세요.');
+        return;
       }
-      this.showToast(`${name} 길찾기를 연결합니다.`);
+      // 네이버 지도 우선: 목적지 검색 화면을 열어 네이버 지도에서 길찾기로 이어지게 합니다.
+      const naverUrl = `https://map.naver.com/p/search/${encodeURIComponent(destination)}`;
+      const opened = window.open(naverUrl, '_blank');
+      if (!opened) window.location.href = naverUrl;
+      this.showToast(`${name || address} 네이버 지도에서 검색합니다.`);
     },
     async loadLeaflet() {
       if (window.L) return window.L;
