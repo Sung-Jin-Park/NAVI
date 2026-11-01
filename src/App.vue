@@ -701,19 +701,52 @@ export default {
       if (!query) { this.showToast('검색할 지역이나 장소를 입력해주세요.'); return; }
       this.mapLocationLoading = true;
       try {
-        const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&country=kr&accept-language=ko&q=${encodeURIComponent(query)}`;
-        const response = await fetch(url, { headers: { 'Accept-Language': 'ko' } });
-        if (!response.ok) throw new Error('GEOCODE_FAILED');
-        const results = await response.json();
-        if (!results.length) { this.showToast('검색 결과가 없습니다. 다른 검색어를 입력해주세요.'); return; }
-        const result = results[0];
+        let result = null;
+        // Nominatim의 국가 필터 파라미터는 countrycodes입니다.
+        try {
+          const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=kr&accept-language=ko&q=${encodeURIComponent(query)}`;
+          const response = await fetch(url, { headers: { 'Accept-Language': 'ko' } });
+          if (response.ok) {
+            const results = await response.json();
+            if (Array.isArray(results) && results.length) result = results[0];
+          }
+        } catch (_) { /* Photon 대체 검색을 시도합니다. */ }
+
+        // Nominatim 요청 제한/CORS/검색 결과 없음에 대비한 공개 지오코더 대체 경로
+        if (!result) {
+          const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lang=ko&limit=5`;
+          const response = await fetch(photonUrl);
+          if (!response.ok) throw new Error('GEOCODE_FAILED');
+          const data = await response.json();
+          const feature = data?.features?.find(item => {
+            const country = String(item.properties?.country || '').toLowerCase();
+            return country.includes('대한민국') || country.includes('south korea') || country.includes('korea');
+          }) || data?.features?.[0];
+          if (feature) {
+            const coords = feature.geometry?.coordinates || [];
+            const props = feature.properties || {};
+            result = {
+              lat: coords[1],
+              lon: coords[0],
+              display_name: [props.name, props.district, props.city, props.state, props.country].filter(Boolean).join(', ')
+            };
+          }
+        }
+
+        if (!result || !Number.isFinite(Number(result.lat)) || !Number.isFinite(Number(result.lon))) {
+          this.showToast('검색 결과가 없습니다. “울산광역시 동구”처럼 시·도 이름을 함께 입력해 주세요.');
+          return;
+        }
         const lat = Number(result.lat), lng = Number(result.lon);
         this.newPlace.coordinates = { lat, lng };
         this.newPlace.address = result.display_name || query;
         this.setMapMarker(lat, lng);
         this.showToast(`${result.display_name || query} 위치로 이동했습니다.`);
-      } catch (error) { this.showToast('지도 위치 검색에 실패했습니다. 잠시 후 다시 시도해주세요.'); }
-      finally { this.mapLocationLoading = false; }
+      } catch (error) {
+        this.showToast('지도 검색 서버에 연결하지 못했습니다. 네트워크를 확인하고 다시 시도해주세요.');
+      } finally {
+        this.mapLocationLoading = false;
+      }
     },
     setMapMarker(lat, lng) {
       if (!this.mapInstance || !window.L) return;
