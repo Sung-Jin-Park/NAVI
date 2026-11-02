@@ -378,12 +378,45 @@ export default {
       this.showToast('실시간 검색 키를 저장했습니다.');
     },
     async loadKakaoPlacesSdk() {
-      if (window.kakao && window.kakao.maps && window.kakao.maps.services) {
-        return new Promise((resolve) => {
-          window.kakao.maps.load(() => resolve(window.kakao));
+      // index.html에서 SDK를 정적으로 로드하므로 services가 준비되어 있으면
+      // maps.load()를 다시 호출하지 않고 즉시 반환합니다.
+      const kakao = window.kakao;
+      if (kakao && kakao.maps && kakao.maps.services) return kakao;
+
+      // SDK core는 있지만 services 라이브러리 초기화가 아직 끝나지 않은
+      // 경우에만 load 콜백을 기다립니다.
+      if (kakao && kakao.maps && typeof kakao.maps.load === 'function') {
+        return await new Promise((resolve, reject) => {
+          let settled = false;
+          const timeoutId = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            reject(new Error('KAKAO_SERVICES_LOAD_TIMEOUT'));
+          }, 10000);
+
+          try {
+            kakao.maps.load(() => {
+              if (settled) return;
+              settled = true;
+              clearTimeout(timeoutId);
+              const loadedKakao = window.kakao;
+              if (loadedKakao && loadedKakao.maps && loadedKakao.maps.services) {
+                resolve(loadedKakao);
+              } else {
+                reject(new Error('KAKAO_SERVICES_NOT_AVAILABLE'));
+              }
+            });
+          } catch (error) {
+            if (!settled) {
+              settled = true;
+              clearTimeout(timeoutId);
+              reject(error);
+            }
+          }
         });
       }
-      throw new Error('KAKAO_SDK_LOAD_FAILED');
+
+      throw new Error('KAKAO_SDK_NOT_AVAILABLE');
     },
     async runSearch() {
       const query = this.searchInput.trim();
