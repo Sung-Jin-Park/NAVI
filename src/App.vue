@@ -158,7 +158,7 @@
               <button :disabled="mapLocationLoading" @click="searchMapLocation">{{ mapLocationLoading ? '검색 중…' : '⌕ 찾기' }}</button>
             </div>
             <div v-if="registerTab === 'map'" class="map-picker-wrap">
-              <div ref="realMap" class="real-map" aria-label="실제 지도"></div>
+              <div ref="realMap" class="real-map" aria-label="카카오 지도"></div>
               <div class="map-hint">지도를 이동·확대하고 원하는 위치를 터치해 핀을 선택하세요.</div>
             </div>
             <div v-else class="address-search">
@@ -167,7 +167,7 @@
               <div class="address-results">
                 <button v-for="item in searchedAddresses" :key="item.place_id"
                         @click="selectSearchedAddress(item)">
-                  <span><b>{{ item.display_name.split(',')[0] }}</b><small>{{ item.display_name }}</small></span>
+                  <span><b>{{ item.name }}</b><small>{{ item.display_name }}</small></span>
                   <em>선택</em>
                 </button>
                 <p v-if="addressSearchQuery && !addressSearchLoading && searchedAddresses.length === 0">검색 결과가 없습니다.</p>
@@ -220,12 +220,12 @@ const KOREA_REGIONS = [
 ];
 
 const INITIAL_PLACES = [
-  { id: 1, cityId: 'seoul', name: '더 현대 서울', category: '핫플레이스', rating: 4.8, address: '서울 영등포구 여의대로 108', detailAddress: '지하 2층 팝업스토어 존', description: '도심 속 자연을 품은 혁신적인 실내 정원 사운즈 포레스트와 트렌디한 글로벌 팝업스토어 성지[span_5](start_span)[span_5](end_span).', image: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=800&q=80', likes: 1240, coordinates: { x: 45, y: 35 }, tags: ['쇼핑', '실내정원', '팝업스토어'] },
-  { id: 2, cityId: 'seoul', name: 'N서울타워', category: '랜드마크', rating: 4.7, address: '서울 용산구 남산공원길 105', detailAddress: '전망대 타워층', description: '서울 시내를 360도 파노라마로 한눈에 감상할 수 있는 로맨틱한 대표 밤야경 힐링 스팟[span_6](start_span)[span_6](end_span).', image: 'https://images.unsplash.com/photo-1538485199708-0f51451c5301?auto=format&fit=crop&w=800&q=80', likes: 980, coordinates: { x: 50, y: 40 }, tags: ['야경', '남산', '데이스코스'] },
-  { id: 3, cityId: 'busan', name: '광안리 해수욕장 & M드론라이트쇼', category: '오션뷰', rating: 4.9, address: '부산 수영구 광안해변로 219', detailAddress: '민락타운 앞 해변무대', description: '화려한 광안대교 조명과 수천 대의 드론이 펼치는 밤하늘의 낭만적인 드론 쇼[span_7](start_span)[span_7](end_span).', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80', likes: 2150, coordinates: { x: 70, y: 75 }, tags: ['바다', '드론쇼', '광안대교'] },
-  { id: 4, cityId: 'jeju', name: '사계해안 지층대', category: '인생샷', rating: 4.9, address: '제주특별자치도 서귀포시 안덕면 사계리', detailAddress: '사계항 해안도로변', description: '독특한 화산지형 지층 무늬와 구멍 뚫린 해안 바위가 어우러져 해외 여행지 같은 포토존[span_8](start_span)[span_8](end_span).', image: 'https://images.unsplash.com/photo-1540206395-68808572332f?auto=format&fit=crop&w=800&q=80', likes: 1840, coordinates: { x: 25, y: 85 }, tags: ['포토존', '자연경관', '제주서부'] },
-  { id: 5, cityId: 'gyeongbuk', name: '경주 동궁과 월지', category: '역사/야경', rating: 4.85, address: '경상북도 경주시 원화로 102', detailAddress: '동궁과 월지 연못 둘레길', description: '신라 왕궁의 별궁 터로 밤이 되면 연못에 반사되는 조명 건물들이 몽환적인 야경 명소[span_9](start_span)[span_9](end_span).', image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80', likes: 890, coordinates: { x: 65, y: 60 }, tags: ['경주야경', '신라유적', '산책'] },
-  { id: 6, cityId: 'gangwon', name: '강릉 안목해변 커피거리', category: '카페/바다', rating: 4.6, address: '강원특별자치도 강릉시 창해로 14', detailAddress: '카페거리 중앙 광장', description: '동해 바다 풍경을 바라보며 명품 스페셜티 커피와 디저트를 즐길 수 있는 카페 거리[span_10](start_span)[span_10](end_span).', image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=800&q=80', likes: 1420, coordinates: { x: 75, y: 25 }, tags: ['커피', '동해바다', '드라이브'] }
+  { id: 1, cityId: 'seoul', name: '더 현대 서울', category: '핫플레이스', rating: 4.8, address: '서울 영등포구 여의대로 108', detailAddress: '지하 2층 팝업스토어 존', description: '도심 속 자연을 품은 혁신적인 실내 정원 사운즈 포레스트와 트렌디한 글로벌 팝업스토어 성지[span_5](start_span)[span_5](end_span).', image: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=800&q=80', likes: 1240, tags: ['쇼핑', '실내정원', '팝업스토어'] },
+  { id: 2, cityId: 'seoul', name: 'N서울타워', category: '랜드마크', rating: 4.7, address: '서울 용산구 남산공원길 105', detailAddress: '전망대 타워층', description: '서울 시내를 360도 파노라마로 한눈에 감상할 수 있는 로맨틱한 대표 밤야경 힐링 스팟[span_6](start_span)[span_6](end_span).', image: 'https://images.unsplash.com/photo-1538485199708-0f51451c5301?auto=format&fit=crop&w=800&q=80', likes: 980, tags: ['야경', '남산', '데이스코스'] },
+  { id: 3, cityId: 'busan', name: '광안리 해수욕장 & M드론라이트쇼', category: '오션뷰', rating: 4.9, address: '부산 수영구 광안해변로 219', detailAddress: '민락타운 앞 해변무대', description: '화려한 광안대교 조명과 수천 대의 드론이 펼치는 밤하늘의 낭만적인 드론 쇼[span_7](start_span)[span_7](end_span).', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80', likes: 2150, tags: ['바다', '드론쇼', '광안대교'] },
+  { id: 4, cityId: 'jeju', name: '사계해안 지층대', category: '인생샷', rating: 4.9, address: '제주특별자치도 서귀포시 안덕면 사계리', detailAddress: '사계항 해안도로변', description: '독특한 화산지형 지층 무늬와 구멍 뚫린 해안 바위가 어우러져 해외 여행지 같은 포토존[span_8](start_span)[span_8](end_span).', image: 'https://images.unsplash.com/photo-1540206395-68808572332f?auto=format&fit=crop&w=800&q=80', likes: 1840, tags: ['포토존', '자연경관', '제주서부'] },
+  { id: 5, cityId: 'gyeongbuk', name: '경주 동궁과 월지', category: '역사/야경', rating: 4.85, address: '경상북도 경주시 원화로 102', detailAddress: '동궁과 월지 연못 둘레길', description: '신라 왕궁의 별궁 터로 밤이 되면 연못에 반사되는 조명 건물들이 몽환적인 야경 명소[span_9](start_span)[span_9](end_span).', image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80', likes: 890, tags: ['경주야경', '신라유적', '산책'] },
+  { id: 6, cityId: 'gangwon', name: '강릉 안목해변 커피거리', category: '카페/바다', rating: 4.6, address: '강원특별자치도 강릉시 창해로 14', detailAddress: '카페거리 중앙 광장', description: '동해 바다 풍경을 바라보며 명품 스페셜티 커피와 디저트를 즐길 수 있는 카페 거리[span_10](start_span)[span_10](end_span).', image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=800&q=80', likes: 1420, tags: ['커피', '동해바다', '드라이브'] }
 ];
 
 const CURATED_PLACES = [
@@ -314,7 +314,7 @@ export default {
     },
   },
   async mounted() {
-    try { this.kakaoAppKey = localStorage.getItem('curator_kakao_js_key') || ''; } catch (_) { this.kakaoAppKey = ''; }
+    try { this.kakaoAppKey = localStorage.getItem('curator_kakao_js_key'] || ''; } catch (_) { this.kakaoAppKey = ''; }
     this.kakaoAppKeyInput = this.kakaoAppKey;
     await this.initializePlacesDb();
   },
@@ -378,27 +378,12 @@ export default {
       this.showToast('실시간 검색 키를 저장했습니다.');
     },
     async loadKakaoPlacesSdk() {
-      if (window.kakao && window.kakao.maps && window.kakao.maps.services) return window.kakao;
-      if (!this.kakaoAppKey) throw new Error('KAKAO_KEY_MISSING');
-      await new Promise((resolve, reject) => {
-        const existing = document.querySelector('script[data-kakao-places-sdk]');
-        if (existing) {
-          if (window.kakao && window.kakao.maps && window.kakao.maps.services) { resolve(); return; }
-          existing.addEventListener('load', resolve, { once: true });
-          existing.addEventListener('error', reject, { once: true });
-          return;
-        }
-        const script = document.createElement('script');
-        script.dataset.kakaoPlacesSdk = '1';
-        script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(this.kakaoAppKey)}&libraries=services`;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-      if (!window.kakao || !window.kakao.maps) throw new Error('KAKAO_SDK_LOAD_FAILED');
-      await new Promise(resolve => window.kakao.maps.load(resolve));
-      if (!window.kakao.maps.services) throw new Error('KAKAO_SERVICES_UNAVAILABLE');
-      return window.kakao;
+      if (window.kakao && window.kakao.maps && window.kakao.maps.services) {
+        return new Promise((resolve) => {
+          window.kakao.maps.load(() => resolve(window.kakao));
+        });
+      }
+      throw new Error('KAKAO_SDK_LOAD_FAILED');
     },
     async runSearch() {
       const query = this.searchInput.trim();
@@ -407,11 +392,7 @@ export default {
       this.livePlaces = [];
       this.liveSearchMessage = '';
       if (!query) { this.showToast('검색어를 입력해주세요.'); return; }
-      if (!this.kakaoAppKey) {
-        this.showApiKeyInput = true;
-        this.liveSearchMessage = '실시간 장소 검색을 사용하려면 ⚙에서 카카오 JavaScript 키를 설정하세요.';
-        return;
-      }
+      
       this.liveSearchLoading = true;
       try {
         const kakao = await this.loadKakaoPlacesSdk();
@@ -447,9 +428,7 @@ export default {
         });
         this.liveSearchMessage = this.livePlaces.length ? `실시간 검색 결과 ${this.livePlaces.length}곳` : '검색 결과가 없습니다. 다른 검색어를 입력해보세요.';
       } catch (error) {
-        this.liveSearchMessage = error.message === 'KAKAO_KEY_MISSING'
-          ? '카카오 JavaScript 키를 먼저 설정하세요.'
-          : '실시간 검색에 실패했습니다. 키와 등록 도메인, 인터넷 연결을 확인하세요[span_18](start_span)[span_18](end_span).';
+        this.liveSearchMessage = '실시간 검색에 실패했습니다. 키 설정과 인터넷 연결을 확인하세요[span_18](start_span)[span_18](end_span).';
       } finally { this.liveSearchLoading = false; }
     },
     openCurator() {
@@ -538,7 +517,6 @@ export default {
       this.showToast(`${name || address} 네이버 지도에서 검색합니다.`);
     },
 
-    // --- 카카오 지도 연동 관련 메서드 (OpenStreetMap 대체) ---
     async initializeMap() {
       if (!this.$refs.realMap) return;
       try {
