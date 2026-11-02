@@ -448,7 +448,13 @@ export default {
       this.addressSearchQuery = '';
       this.searchedAddresses = [];
       this.isRegisterOpen = true;
-      nextTick(() => this.initializeMap());
+      nextTick(() => {
+        this.initializeMap().then(() => {
+          if (this.mapInstance) {
+            this.mapInstance.relayout();
+          }
+        });
+      });
     },
     editPlace(place) {
       this.editingPlaceId = place.id;
@@ -468,7 +474,16 @@ export default {
       this.mapLocationQuery = '';
       this.searchedAddresses = [];
       this.isRegisterOpen = true;
-      nextTick(() => this.initializeMap());
+      nextTick(() => {
+        this.initializeMap().then(() => {
+          if (this.mapInstance) {
+            this.mapInstance.relayout();
+            if (this.newPlace.coordinates?.lat && this.newPlace.coordinates?.lng) {
+              this.setMapMarker(this.newPlace.coordinates.lat, this.newPlace.coordinates.lng);
+            }
+          }
+        });
+      });
     },
     async deletePlace(place) {
       if (!window.confirm(`“${place.name}” 장소를 삭제할까요?`)) return;
