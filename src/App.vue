@@ -39,7 +39,7 @@
       <div v-if="showApiKeyInput" class="api-key-panel">
         <input v-model.trim="kakaoAppKeyInput" type="password" placeholder="카카오 JavaScript 키 입력">
         <button @click="saveKakaoKey">키 저장</button>
-        <small>카카오 개발자 콘솔에서 JavaScript 키를 발급하고 현재 사이트 도메인을 등록하세요[span_0](start_span)[span_0](end_span).</small>
+        <small>카카오 개발자 콘솔에서 JavaScript 키를 발급하고 현재 사이트 도메인을 등록하세요.</small>
       </div>
 
       <div v-if="liveSearchMessage" class="live-search-message">{{ liveSearchMessage }}</div>
@@ -89,14 +89,14 @@
           <header class="modal-heading"><div><strong>✨ AI 큐레이터</strong><small>{{ currentRegion.name }}의 장소를 로컬에서 분석해 추천합니다</small></div><button @click="isCuratorOpen = false">×</button></header>
           <div class="curator-content">
             <label class="curator-region-label">추천 지역</label><select class="curator-region-select" v-model="curatorRegionId"><option v-for="region in regions" :key="region.id" :value="region.id">{{ region.name }}</option></select>
-            <p class="curator-note">서버 연결 없이 장소의 설명·태그·평점을 바탕으로 추천합니다[span_1](start_span)[span_1](end_span).</p>
+            <p class="curator-note">서버 연결 없이 장소의 설명·태그·평점을 바탕으로 추천합니다[span_0](start_span)[span_0](end_span).</p>
             <div class="curator-controls"><button v-for="mood in curatorMoods" :key="mood" :class="{ active: curatorMood === mood }" @click="curatorMood = mood">{{ mood }}</button></div>
             <article v-for="place in curatorRecommendations" :key="place.id" class="curator-result">
               <img :src="place.image" :alt="place.name" @error="onImageError">
               <div><strong>{{ place.name }}</strong><p>{{ place.description }}</p><small>★ {{ Number(place.rating || 0).toFixed(1) }} · {{ place.category }}</small></div>
               <button @click="isCuratorOpen = false; searchQuery = place.name">보기</button>
             </article>
-            <p v-if="!curatorRecommendations.length" class="curator-note">추천할 장소가 없습니다. 장소를 등록하거나 다른 도시를 선택해 주세요[span_2](start_span)[span_2](end_span).</p>
+            <p v-if="!curatorRecommendations.length" class="curator-note">추천할 장소가 없습니다. 장소를 등록하거나 다른 도시를 선택해 주세요[span_1](start_span)[span_1](end_span).</p>
           </div>
         </section>
       </div>
@@ -148,7 +148,7 @@
             <div class="location-heading">
               <label>위치 입력 방식 *</label>
               <div class="tabs">
-                <button :class="{ active: registerTab === 'map' }" @click="registerTab = 'map'">⌖ 지도 핀 찍기</button>
+                <button :class="{ active: registerTab === 'map' }" @click="registerTab = 'map'; handleTabSwitchToMap()">⌖ 지도 핀 찍기</button>
                 <button :class="{ active: registerTab === 'search' }" @click="registerTab = 'search'">⌕ 주소 검색</button>
               </div>
             </div>
@@ -176,7 +176,7 @@
             <input class="selected-address" :value="newPlace.address" readonly placeholder="선택된 주소가 표시됩니다">
 
             <label>이 장소가 특별한 이유</label>
-            <textarea v-model="newPlace.description" rows="2" placeholder="뷰가 멋진 창가 자리, 추천 메뉴 등 시크릿 팁을 남겨주세요[span_3](start_span)[span_3](end_span)."></textarea>
+            <textarea v-model="newPlace.description" rows="2" placeholder="뷰가 멋진 창가 자리, 추천 메뉴 등 시크릿 팁을 남겨주세요."></textarea>
             <label>태그 (쉼표로 구분)</label>
             <input v-model="newPlace.tags" placeholder="오션뷰, 데이트, 분위기맛집">
             <label>이미지 주소 (선택)</label>
@@ -220,17 +220,17 @@ const KOREA_REGIONS = [
 ];
 
 const INITIAL_PLACES = [
-  { id: 1, cityId: 'seoul', name: '더 현대 서울', category: '핫플레이스', rating: 4.8, address: '서울 영등포구 여의대로 108', detailAddress: '지하 2층 팝업스토어 존', description: '도심 속 자연을 품은 혁신적인 실내 정원 사운즈 포레스트와 트렌디한 글로벌 팝업스토어 성지[span_4](start_span)[span_4](end_span).', image: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=800&q=80', likes: 1240, tags: ['쇼핑', '실내정원', '팝업스토어'] },
-  { id: 2, cityId: 'seoul', name: 'N서울타워', category: '랜드마크', rating: 4.7, address: '서울 용산구 남산공원길 105', detailAddress: '전망대 타워층', description: '서울 시내를 360도 파노라마로 한눈에 감상할 수 있는 로맨틱한 대표 밤야경 힐링 스팟[span_5](start_span)[span_5](end_span).', image: 'https://images.unsplash.com/photo-1538485199708-0f51451c5301?auto=format&fit=crop&w=800&q=80', likes: 980, tags: ['야경', '남산', '데이스코스'] },
-  { id: 3, cityId: 'busan', name: '광안리 해수욕장 & M드론라이트쇼', category: '오션뷰', rating: 4.9, address: '부산 수영구 광안해변로 219', detailAddress: '민락타운 앞 해변무대', description: '화려한 광안대교 조명과 수천 대의 드론이 펼치는 밤하늘의 낭만적인 드론 쇼[span_6](start_span)[span_6](end_span).', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80', likes: 2150, tags: ['바다', '드론쇼', '광안대교'] },
-  { id: 4, cityId: 'jeju', name: '사계해안 지층대', category: '인생샷', rating: 4.9, address: '제주특별자치도 서귀포시 안덕면 사계리', detailAddress: '사계항 해안도로변', description: '독특한 화산지형 지층 무늬와 구멍 뚫린 해안 바위가 어우러져 해외 여행지 같은 포토존[span_7](start_span)[span_7](end_span).', image: 'https://images.unsplash.com/photo-1540206395-68808572332f?auto=format&fit=crop&w=800&q=80', likes: 1840, tags: ['포토존', '자연경관', '제주서부'] },
-  { id: 5, cityId: 'gyeongbuk', name: '경주 동궁과 월지', category: '역사/야경', rating: 4.85, address: '경상북도 경주시 원화로 102', detailAddress: '동궁과 월지 연못 둘레길', description: '신라 왕궁의 별궁 터로 밤이 되면 연못에 반사되는 조명 건물들이 몽환적인 야경 명소[span_8](start_span)[span_8](end_span).', image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80', likes: 890, tags: ['경주야경', '신라유적', '산책'] },
-  { id: 6, cityId: 'gangwon', name: '강릉 안목해변 커피거리', category: '카페/바다', rating: 4.6, address: '강원특별자치도 강릉시 창해로 14', detailAddress: '카페거리 중앙 광장', description: '동해 바다 풍경을 바라보며 명품 스페셜티 커피와 디저트를 즐길 수 있는 카페 거리[span_9](start_span)[span_9](end_span).', image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=800&q=80', likes: 1420, tags: ['커피', '동해바다', '드라이브'] }
+  { id: 1, cityId: 'seoul', name: '더 현대 서울', category: '핫플레이스', rating: 4.8, address: '서울 영등포구 여의대로 108', detailAddress: '지하 2층 팝업스토어 존', description: '도심 속 자연을 품은 혁신적인 실내 정원 사운즈 포레스트와 트렌디한 글로벌 팝업스토어 성지.', image: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=800&q=80', likes: 1240, tags: ['쇼핑', '실내정원', '팝업스토어'] },
+  { id: 2, cityId: 'seoul', name: 'N서울타워', category: '랜드마크', rating: 4.7, address: '서울 용산구 남산공원길 105', detailAddress: '전망대 타워층', description: '서울 시내를 360도 파노라마로 한눈에 감상할 수 있는 로맨틱한 대표 밤야경 힐링 스팟.', image: 'https://images.unsplash.com/photo-1538485199708-0f51451c5301?auto=format&fit=crop&w=800&q=80', likes: 980, tags: ['야경', '남산', '데이스코스'] },
+  { id: 3, cityId: 'busan', name: '광안리 해수욕장 & M드론라이트쇼', category: '오션뷰', rating: 4.9, address: '부산 수영구 광안해변로 219', detailAddress: '민락타운 앞 해변무대', description: '화려한 광안대교 조명과 수천 대의 드론이 펼치는 밤하늘의 낭만적인 드론 쇼.', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80', likes: 2150, tags: ['바다', '드론쇼', '광안대교'] },
+  { id: 4, cityId: 'jeju', name: '사계해안 지층대', category: '인생샷', rating: 4.9, address: '제주특별자치도 서귀포시 안덕면 사계리', detailAddress: '사계항 해안도로변', description: '독특한 화산지형 지층 무늬와 구멍 뚫린 해안 바위가 어우러져 해외 여행지 같은 포토존.', image: 'https://images.unsplash.com/photo-1540206395-68808572332f?auto=format&fit=crop&w=800&q=80', likes: 1840, tags: ['포토존', '자연경관', '제주서부'] },
+  { id: 5, cityId: 'gyeongbuk', name: '경주 동궁과 월지', category: '역사/야경', rating: 4.85, address: '경상북도 경주시 원화로 102', detailAddress: '동궁과 월지 연못 둘레길', description: '신라 왕궁의 별궁 터로 밤이 되면 연못에 반사되는 조명 건물들이 몽환적인 야경 명소.', image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80', likes: 890, tags: ['경주야경', '신라유적', '산책'] },
+  { id: 6, cityId: 'gangwon', name: '강릉 안목해변 커피거리', category: '카페/바다', rating: 4.6, address: '강원특별자치도 강릉시 창해로 14', detailAddress: '카페거리 중앙 광장', description: '동해 바다 풍경을 바라보며 명품 스페셜티 커피와 디저트를 즐길 수 있는 카페 거리.', image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=800&q=80', likes: 1420, tags: ['커피', '동해바다', '드라이브'] }
 ];
 
 const CURATED_PLACES = [
-  { id: 101, cityId: 'seoul', name: '경복궁', category: '명소', rating: 4.6, address: '서울특별시 경복궁', detailAddress: '', description: '경복궁 지역에서 방문하기 좋은 대표 명소입니다[span_10](start_span)[span_10](end_span). 방문 전 운영 시간과 이용 정보를 확인하세요[span_11](start_span)[span_11](end_span).', image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80', likes: 0, tags: ['관광', '지역추천', '명소'] },
-  { id: 102, cityId: 'seoul', name: '창덕궁과 후원', category: '명소', rating: 4.6, address: '서울특별시 창덕궁과 후원', detailAddress: '', description: '창덕궁과 후원 지역에서 방문하기 좋은 대표 명소입니다[span_12](start_span)[span_12](end_span). 방문 전 운영 시간과 이용 정보를 확인하세요[span_13](start_span)[span_13](end_span).', image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80', likes: 0, tags: ['관광', '지역추천', '명소'] }
+  { id: 101, cityId: 'seoul', name: '경복궁', category: '명소', rating: 4.6, address: '서울특별시 경복궁', detailAddress: '', description: '경복궁 지역에서 방문하기 좋은 대표 명소입니다. 방문 전 운영 시간과 이용 정보를 확인하세요.', image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80', likes: 0, tags: ['관광', '지역추천', '명소'] },
+  { id: 102, cityId: 'seoul', name: '창덕궁과 후원', category: '명소', rating: 4.6, address: '서울특별시 창덕궁과 후원', detailAddress: '', description: '창덕궁과 후원 지역에서 방문하기 좋은 대표 명소입니다. 방문 전 운영 시간과 이용 정보를 확인하세요.', image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80', likes: 0, tags: ['관광', '지역추천', '명소'] }
 ];
 
 const EMPTY_PLACE = () => ({
@@ -340,10 +340,10 @@ export default {
         });
         if (storedPlaces.length) this.places = storedPlaces;
         else await this.persistAllPlaces();
-      } catch (error) { this.showToast('IndexedDB를 열지 못했습니다[span_14](start_span)[span_14](end_span). 브라우저 저장 설정을 확인해주세요.'); }
+      } catch (error) { this.showToast('IndexedDB를 열지 못했습니다. 브라우저 저장 설정을 확인해주세요.'); }
     },
     async persistAllPlaces() {
-      if (!this.placesDb) throw new Error('IndexedDB가 초기화되지 않았습니다[span_15](start_span)[span_15](end_span).');
+      if (!this.placesDb) throw new Error('IndexedDB가 초기화되지 않았습니다.');
       const records = JSON.parse(JSON.stringify(this.places)).map(place => ({
         ...place,
         id: place.id,
@@ -418,7 +418,7 @@ export default {
             rating: 0,
             address: item.road_address_name || item.address_name || '',
             detailAddress: '',
-            description: item.category_name || '카카오 로컬에서 실시간으로 검색한 장소입니다[span_16](start_span)[span_16](end_span).',
+            description: item.category_name || '카카오 로컬에서 실시간으로 검색한 장소입니다.',
             image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
             likes: 0,
             tags: [item.category_group_name || '실시간 검색', '카카오 로컬'],
@@ -428,7 +428,7 @@ export default {
         });
         this.liveSearchMessage = this.livePlaces.length ? `실시간 검색 결과 ${this.livePlaces.length}곳` : '검색 결과가 없습니다. 다른 검색어를 입력해보세요.';
       } catch (error) {
-        this.liveSearchMessage = '실시간 검색에 실패했습니다. 키 설정과 인터넷 연결을 확인하세요[span_17](start_span)[span_17](end_span).';
+        this.liveSearchMessage = '실시간 검색에 실패했습니다. 키 설정과 인터넷 연결을 확인하세요.';
       } finally { this.liveSearchLoading = false; }
     },
     openCurator() {
@@ -448,12 +448,19 @@ export default {
       this.addressSearchQuery = '';
       this.searchedAddresses = [];
       this.isRegisterOpen = true;
+      
+      // 모달이 DOM에 완전히 렌더링된 후 지도를 초기화하고 크기를 재조정
       nextTick(() => {
-        this.initializeMap().then(() => {
-          if (this.mapInstance) {
-            this.mapInstance.relayout();
-          }
-        });
+        setTimeout(() => {
+          this.initializeMap().then(() => {
+            if (this.mapInstance) {
+              this.mapInstance.relayout();
+              if (this.newPlace.coordinates?.lat && this.newPlace.coordinates?.lng) {
+                this.setMapMarker(this.newPlace.coordinates.lat, this.newPlace.coordinates.lng);
+              }
+            }
+          });
+        }, 200);
       });
     },
     editPlace(place) {
@@ -474,15 +481,32 @@ export default {
       this.mapLocationQuery = '';
       this.searchedAddresses = [];
       this.isRegisterOpen = true;
+      
       nextTick(() => {
-        this.initializeMap().then(() => {
-          if (this.mapInstance) {
+        setTimeout(() => {
+          this.initializeMap().then(() => {
+            if (this.mapInstance) {
+              this.mapInstance.relayout();
+              if (this.newPlace.coordinates?.lat && this.newPlace.coordinates?.lng) {
+                this.setMapMarker(this.newPlace.coordinates.lat, this.newPlace.coordinates.lng);
+              }
+            }
+          });
+        }, 200);
+      });
+    },
+    handleTabSwitchToMap() {
+      nextTick(() => {
+        setTimeout(() => {
+          if (!this.mapInstance) {
+            this.initializeMap();
+          } else {
             this.mapInstance.relayout();
             if (this.newPlace.coordinates?.lat && this.newPlace.coordinates?.lng) {
               this.setMapMarker(this.newPlace.coordinates.lat, this.newPlace.coordinates.lng);
             }
           }
-        });
+        }, 150);
       });
     },
     async deletePlace(place) {
@@ -586,9 +610,13 @@ export default {
           this.showToast('위치가 선택되었습니다.');
         });
 
+        // 지도가 생성된 직후 크기 재조정 필수
         setTimeout(() => {
-          if (this.mapInstance) this.mapInstance.relayout();
-        }, 150);
+          if (this.mapInstance) {
+            this.mapInstance.relayout();
+            this.mapInstance.setCenter(new kakao.maps.LatLng(currentCoords.lat, currentCoords.lng));
+          }
+        }, 200);
       } catch (error) {
         this.showToast('카카오 지도를 불러오지 못했습니다. API 키를 확인해주세요.');
       }
@@ -637,6 +665,9 @@ export default {
       if (!this.mapInstance || !window.kakao) return;
       const coords = new window.kakao.maps.LatLng(Number(lat), Number(lng));
       this.mapInstance.setCenter(coords);
+      setTimeout(() => {
+        if (this.mapInstance) this.mapInstance.relayout();
+      }, 100);
       if (this.mapMarker) {
         this.mapMarker.setPosition(coords);
       } else {
@@ -687,7 +718,7 @@ export default {
           });
         } catch (_) {
           this.addressSearchLoading = false;
-          this.showToast('주소 검색에 실패했습니다[span_18](start_span)[span_18](end_span).');
+          this.showToast('주소 검색에 실패했습니다.');
         }
       }, 550);
     },
@@ -698,7 +729,11 @@ export default {
       if (!this.newPlace.name.trim()) this.newPlace.name = item.name || item.display_name.split(',')[0].trim();
       this.searchedAddresses = [];
       this.registerTab = 'map';
-      nextTick(() => this.initializeMap().then(() => this.setMapMarker(lat, lng)));
+      nextTick(() => {
+        setTimeout(() => {
+          this.initializeMap().then(() => this.setMapMarker(lat, lng));
+        }, 150);
+      });
       this.showToast('검색한 주소를 지도에 표시했습니다.');
     },
     async savePlace() {
