@@ -270,6 +270,8 @@ export default {
       addressSearchLoading: false,
       mapInstance: null,
       mapMarker: null,
+      mapResizeObserver: null,
+      mapRelayoutTimers: [],
       mapLocationQuery: '',
       mapLocationLoading: false,
       placesDb: null,
@@ -378,45 +380,20 @@ export default {
       this.showToast('실시간 검색 키를 저장했습니다.');
     },
     async loadKakaoPlacesSdk() {
-      // index.html에서 SDK를 정적으로 로드하므로 services가 준비되어 있으면
-      // maps.load()를 다시 호출하지 않고 즉시 반환합니다.
-      const kakao = window.kakao;
-      if (kakao && kakao.maps && kakao.maps.services) return kakao;
+      // index.html에서 자동 로드된 SDK가 준비되어 있으면 그대로 사용합니다.
+      const isReady = kakao => kakao && kakao.maps && kakao.maps.services &&
+        typeof kakao.maps.Map === 'function' &&
+        typeof kakao.maps.services.Geocoder === 'function' &&
+        typeof kakao.maps.services.Places === 'function';
+      if (isReady(window.kakao)) return window.kakao;
 
-      // SDK core는 있지만 services 라이브러리 초기화가 아직 끝나지 않은
-      // 경우에만 load 콜백을 기다립니다.
-      if (kakao && kakao.maps && typeof kakao.maps.load === 'function') {
-        return await new Promise((resolve, reject) => {
-          let settled = false;
-          const timeoutId = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            reject(new Error('KAKAO_SERVICES_LOAD_TIMEOUT'));
-          }, 10000);
-
-          try {
-            kakao.maps.load(() => {
-              if (settled) return;
-              settled = true;
-              clearTimeout(timeoutId);
-              const loadedKakao = window.kakao;
-              if (loadedKakao && loadedKakao.maps && loadedKakao.maps.services) {
-                resolve(loadedKakao);
-              } else {
-                reject(new Error('KAKAO_SERVICES_NOT_AVAILABLE'));
-              }
-            });
-          } catch (error) {
-            if (!settled) {
-              settled = true;
-              clearTimeout(timeoutId);
-              reject(error);
-            }
-          }
-        });
+      // SDK 스크립트 로드가 늦는 환경에서는 최대 10초간 준비 상태를 확인합니다.
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < 10000) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (isReady(window.kakao)) return window.kakao;
       }
-
-      throw new Error('KAKAO_SDK_NOT_AVAILABLE');
+      throw new Error('KAKAO_SDK_OR_SERVICES_NOT_READY');
     },
     async runSearch() {
       const query = this.searchInput.trim();
@@ -482,19 +459,7 @@ export default {
       this.searchedAddresses = [];
       this.isRegisterOpen = true;
       
-      // 모달이 DOM에 완전히 렌더링된 후 지도를 초기화하고 크기를 재조정
-      nextTick(() => {
-        setTimeout(() => {
-          this.initializeMap().then(() => {
-            if (this.mapInstance) {
-              this.mapInstance.relayout();
-              if (this.newPlace.coordinates?.lat && this.newPlace.coordinates?.lng) {
-                this.setMapMarker(this.newPlace.coordinates.lat, this.newPlace.coordinates.lng);
-              }
-            }
-          });
-        }, 200);
-      });
+      nextTick(() => this.scheduleMapInitialization());
     },
     editPlace(place) {
       this.editingPlaceId = place.id;
@@ -515,27 +480,16 @@ export default {
       this.searchedAddresses = [];
       this.isRegisterOpen = true;
       
-      nextTick(() => {
-        setTimeout(() => {
-          this.initializeMap().then(() => {
-            if (this.mapInstance) {
-              this.mapInstance.relayout();
-              if (this.newPlace.coordinates?.lat && this.newPlace.coordinates?.lng) {
-                this.setMapMarker(this.newPlace.coordinates.lat, this.newPlace.coordinates.lng);
-              }
-            }
-          });
-        }, 200);
-      });
+      nextTick(() => this.scheduleMapInitialization());
     },
     handleTabSwitchToMap() {
       nextTick(() => {
         setTimeout(() => {
           if (!this.mapInstance) {
-            this.initializeMap();
+            this.initializeMap().then(() => this.scheduleMapRelayout());
           } else {
-            this.mapInstance.relayout();
-            if (this.newPlace.coordinates?.lat && this.newPlace.coordinates?.lng) {
+            this.scheduleMapRelayout();
+            if (this.newPlace.coordinates?.lat != null && this.newPlace.coordinates?.lng != null) {
               this.setMapMarker(this.newPlace.coordinates.lat, this.newPlace.coordinates.lng);
             }
           }
@@ -589,8 +543,38 @@ export default {
       this.showToast(`${name || address} 네이버 지도에서 검색합니다.`);
     },
 
+    scheduleMapInitialization() {
+      setTimeout(async () => {
+        await this.initializeMap();
+        if (this.mapInstance) {
+          this.scheduleMapRelayout();
+          if (this.newPlace.coordinates?.lat != null && this.newPlace.coordinates?.lng != null) {
+            this.setMapMarker(this.newPlace.coordinates.lat, this.newPlace.coordinates.lng);
+          }
+        }
+      }, 180);
+    },
+    scheduleMapRelayout() {
+      this.mapRelayoutTimers.forEach(timer => clearTimeout(timer));
+      this.mapRelayoutTimers = [80, 250, 600, 1000].map(delay => setTimeout(() => {
+        if (!this.mapInstance || !this.$refs.realMap) return;
+        const rect = this.$refs.realMap.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) this.mapInstance.relayout();
+      }, delay));
+      if (typeof ResizeObserver !== 'undefined' && this.$refs.realMap) {
+        if (this.mapResizeObserver) this.mapResizeObserver.disconnect();
+        this.mapResizeObserver = new ResizeObserver(() => {
+          if (this.mapInstance) this.mapInstance.relayout();
+        });
+        this.mapResizeObserver.observe(this.$refs.realMap);
+      }
+    },
     async initializeMap() {
       if (!this.$refs.realMap) return;
+      if (this.mapInstance) {
+        this.scheduleMapRelayout();
+        return;
+      }
       try {
         const kakao = await this.loadKakaoPlacesSdk();
         if (!this.$refs.realMap) return;
@@ -631,7 +615,7 @@ export default {
           geocoder.coord2Address(lng, lat, (result, status) => {
             if (status === kakao.maps.services.Status.OK) {
               const item = result[0];
-              const addressName = item.road_address ? item.road_address.address_name : item.address.address_name;
+              const addressName = item.road_address?.address_name || item.address?.address_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
               this.newPlace.address = addressName;
               if (!this.newPlace.name.trim() || this.newPlace.name === '새 장소' || this.newPlace.name === '지도에서 선택한 장소') {
                 this.newPlace.name = item.road_address?.building_name || addressName.split(' ').slice(-1)[0] || '선택한 장소';
@@ -643,15 +627,11 @@ export default {
           this.showToast('위치가 선택되었습니다.');
         });
 
-        // 지도가 생성된 직후 크기 재조정 필수
-        setTimeout(() => {
-          if (this.mapInstance) {
-            this.mapInstance.relayout();
-            this.mapInstance.setCenter(new kakao.maps.LatLng(currentCoords.lat, currentCoords.lng));
-          }
-        }, 200);
+        // 모바일 브라우저의 초기 크기 계산 문제를 위해 여러 번 relayout 합니다.
+        this.scheduleMapRelayout();
       } catch (error) {
-        this.showToast('카카오 지도를 불러오지 못했습니다. API 키를 확인해주세요.');
+        console.error('[Kakao Map] 초기화 실패:', error);
+        this.showToast(`카카오 지도 초기화 실패: ${error?.message || 'SDK 오류'}`);
       }
     },
     async searchMapLocation() {
@@ -709,6 +689,12 @@ export default {
       }
     },
     destroyMap() {
+      if (this.mapResizeObserver) {
+        this.mapResizeObserver.disconnect();
+        this.mapResizeObserver = null;
+      }
+      this.mapRelayoutTimers.forEach(timer => clearTimeout(timer));
+      this.mapRelayoutTimers = [];
       this.mapInstance = null;
       this.mapMarker = null;
     },
@@ -957,8 +943,8 @@ export default {
 .map-location-search input { flex: 1; min-width: 0; border: 1px solid #475569; border-radius: 10px; padding: 10px; background: #0f172a; color: #f8fafc; font-size: 12px; }
 .map-location-search button { border: 0; border-radius: 10px; padding: 0 13px; background: #4f46e5; color: white; font-weight: 800; cursor: pointer; }
 .map-location-search button:disabled { opacity: .6; }
-.map-picker-wrap { position: relative; height: 300px; overflow: hidden; border: 1px solid #475569; border-radius: 15px; background: #111827; }
-.real-map { width: 100%; height: 100%; z-index: 1; }
+.map-picker-wrap { position: relative; width: 100%; height: 300px; min-height: 300px; overflow: hidden; border: 1px solid #475569; border-radius: 15px; background: #111827; }
+.real-map { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 300px; z-index: 1; }
 .map-hint { position: absolute; z-index: 500; top: 9px; left: 9px; padding: 6px 8px; border: 1px solid #475569; border-radius: 8px; background: #0f172add; color: #cbd5e1; font-size: 9px; pointer-events: none; }
 .address-search { margin-top: 8px; }
 .address-status { padding: 8px 10px; color: #a5b4fc; font-size: 10px; }
